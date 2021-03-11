@@ -1,0 +1,73 @@
+MenuBar {
+    background: #3C3C3C;
+}
+
+MenuBar MenuBarMovePane {
+    border: none;
+    background: #3C3C3C;
+}
+
+MenuBarMovePane QLabel#Title {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMinimize {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMaximize {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnClose {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMinimize:hover {
+    background: #505050;
+}
+
+QPushButton#BtnMaximize:hover {
+    background: #505050;
+}
+
+QPushButton#BtnClose:hover {
+    background: #D61425;
+    image: url(":/menu_bar/close-hover.svg");
+}
+
+LeftBar QFrame {
+    background: white;
+    min-width: 1;
+}
+
+MenuBar {
+    background: #3C3C3C;
+}
+
+MenuBar QWidget#Menus{
+    background: #3C3C3C;
+}
+
+QWidget[errorSelection="true"]{
+    background: #933C2B;
+}
+
+MainWindow
+{
+    qproperty-errorColor: #933C2B;
+    qproperty-errorTextColor: white;
+}
+
+TreeBar QLabel#Title {
+    color: #9d9d9d;
+    font-size: 12px;
+}
+
+MenuBar QLabel#LogoIcon {
+    background: #3C3C3C;
+}
+
+MenuBarMovePane QLabel#Icon {
+    background: #3C3C3C;
+}

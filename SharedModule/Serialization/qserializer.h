@@ -50,6 +50,65 @@ struct Serializer<QString>
     }
 };
 
+template<>
+struct Serializer<QDate>
+{
+    using TypeName = QDate;
+
+    template<class Buffer>
+    static void Write(Buffer& buffer, const TypeName& data)
+    {
+        auto julianDate = data.toJulianDay();
+        buffer << julianDate;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, TypeName& data)
+    {
+        qint64 julianDate;
+        buffer << julianDate;
+        data = QDate::fromJulianDay(julianDate);
+    }
+};
+
+template<>
+struct Serializer<QSize>
+{
+    typedef QSize target_type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const target_type& data)
+    {
+        auto w = data.width();
+        auto h = data.height();
+        buffer << w;
+        buffer << h;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, target_type& data)
+    {
+        buffer << data.rwidth();
+        buffer << data.rheight();
+    }
+};
+
+template<>
+struct Serializer<QImage>
+{
+    typedef QImage target_type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const target_type& data)
+    {
+        buffer.GetStream() << data;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, target_type& data)
+    {
+        buffer.GetStream() >> data;
+    }
+};
+
 template<class T>
 struct Serializer<QSet<T>>
 {
@@ -205,5 +264,23 @@ struct SerializerDirectionHelper<QDataStreamReader>
 
 typedef StreamBufferBase<QDataStreamWriter> QStreamBufferWrite;
 typedef StreamBufferBase<QDataStreamReader> QStreamBufferRead;
+
+template<class T>
+inline QByteArray SerializeToArray(const T& object, SerializationModes serializationMode = SerializationMode_Default)
+{
+    QByteArray array;
+    QStreamBufferWrite writer(&array, QIODevice::WriteOnly);
+    writer.SetSerializationMode(serializationMode);
+    writer << object;
+    return array;
+}
+
+template<class T>
+void DeSerializeFromArray(const QByteArray& array, T& object, SerializationModes serializationMode = SerializationMode_Default)
+{
+    QStreamBufferRead reader(array);
+    reader.SetSerializationMode(serializationMode);
+    reader << object;
+}
 
 #endif

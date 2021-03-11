@@ -1,11 +1,11 @@
 #ifndef PROCCESSFACTORY_H
 #define PROCCESSFACTORY_H
 
+#include "SharedModule/shared_decl.h"
+
 #include <string>
 #include <atomic>
 #include <functional>
-
-#include <SharedModule/internal.hpp>
 
 struct DescProcessValueState
 {
@@ -35,13 +35,14 @@ protected:
 public:
     virtual ~ProcessValue();
 
+    void SetDummy(bool dummy);
     void Cancel();
 
     DescProcessValueState GetState() const { return { GetTitle(), GetDepth(), IsFinished(), IsCancelable(), IsTitleChanged() }; }
     int GetDepth() const { return m_valueDepth; }
     const std::wstring& GetTitle() const { return m_title; }
     bool IsFinished() const { return m_isFinished; }
-    bool IsCancelable() const { return m_isCancelable; }
+    bool IsCancelable() const { return m_interruptor != nullptr; }
     bool IsTitleChanged() const { return m_isTitleChanged; }
     virtual class ProcessDeterminateValue* AsDeterminate() { return nullptr; }
 
@@ -50,17 +51,18 @@ protected:
     void finish();
 
     virtual void incrementStep(int divider);
-    void init(bool cancelable, const std::wstring& title);
+    void init(class Interruptor* interruptor, const std::wstring& title);
 
 protected:
     friend class ProcessFactory;
     friend class ProcessBase;
 
     int m_valueDepth;
+    FCallback m_currentCallback;
     FCallback m_callback;
     std::wstring m_title;
     bool m_isFinished;
-    std::atomic_bool m_isCancelable;
+    Interruptor* m_interruptor;
     bool m_isTitleChanged;
 };
 
@@ -95,7 +97,7 @@ private:
 
     virtual void incrementStep(int divider) override;
 
-    void init(bool cancelable, const std::wstring& title, int stepsCount);
+    void init(Interruptor* interruptor, const std::wstring& title, int stepsCount);
     void increaseStepsCount(int value);
 
 private:

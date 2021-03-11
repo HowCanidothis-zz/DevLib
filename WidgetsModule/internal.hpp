@@ -3,7 +3,12 @@
 
 #if defined __cplusplus
 
-#include "Models/modelstreebase.h"
+#include "Models/viewmodeltreebase.h"
+#include "Models/modelstreeitembase.h"
+#include "Models/modelstree.h"
+#include "Models/wrappers.h"
+#include "Models/modelstablebase.h"
+#include "Models/modelslistbase.h"
 
 #include "Notifier/notifymanager.h"
 #include "Notifier/topnotifierframe.h"
@@ -15,8 +20,27 @@
 #include "ToolTip/tooltiparrowwidget.h"
 
 #include "Attachments/tableviewwidgetattachment.h"
+#include "Attachments/progressbarattachment.h"
+#include "Attachments/ignorewheelwithoutfocusattachment.h"
+#include "Attachments/windowresizeattachment.h"
+#include "Attachments/focuswatcherattachment.h"
+#include "Attachments/floatingwidgetlocationattachment.h"
+
+#include "Components/componentplacer.h"
+
+#include "Layouts/flowlayout.h"
+#include "Layouts/flowwidget.h"
 
 #include "Utils/iconsmanager.h"
+#include "Utils/styleutils.h"
+#include "Utils/widgethelpers.h"
+
+#include "Delegates/delegates.h"
+
+#include "TableViews/widgetsactivetableviewbase.h"
+#include "TableViews/widgetsadjustabletableview.h"
+
+#include "Managers/widgetsdialogsmanager.h"
 
 #endif
 

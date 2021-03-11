@@ -37,6 +37,10 @@
 #include "Threads/Promises/promise.h"
 #include "Threads/threadsbase.h"
 #include "Threads/ThreadFunction/threadpool.h"
+#include "Threads/threadtimer.h"
+#include "Threads/threadcalculator.h"
+#include "delayedcall.h"
+#include "FullTextSearch/ftsdictionary.h"
 #include "flags.h"
 #include "profile_utils.h"
 #include "timer.h"
@@ -45,8 +49,11 @@
 #include "name.h"
 #include "Logger/logger.h"
 #include "dispatcher.h"
+#include "events.h"
 #include "Trees/cubetree.h"
 #include "Trees/quadtreef.h"
+#include "interruptor.h"
+#include "externalservice.h"
 
 #endif
 

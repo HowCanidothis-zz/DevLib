@@ -13,28 +13,27 @@ ThreadsBase::ThreadsBase()
 
 }
 
+AsyncResult ThreadsBase::DoMainWithResult(const FAction& task, Qt::EventPriority priority)
+{
+    return QtInlineEventWithResult::Post(task, priority);
+}
+
 void ThreadsBase::DoMain(const FAction& task, Qt::EventPriority priority)
 {
     QtInlineEvent::Post(task, priority);
 }
 
-// TODO. potentially unsafe due to thread pool limitations
 void ThreadsBase::DoMainAwait(const FAction &task, Qt::EventPriority priority)
 {
-    QMutex mutex;
-    QWaitCondition waitCondition;
-    std::atomic_bool done(false);
+    THREAD_ASSERT_IS_NOT_MAIN()
+    FutureResult result;
+    result += QtInlineEventWithResult::Post(task, priority);
+    result.Wait();
+}
 
-    QtInlineEvent::Post([task, &done, &waitCondition]{
-        task();
-        done = true;
-        waitCondition.wakeAll();
-    }, priority);
-
-    QMutexLocker locker(&mutex);
-    while(!done) { // from spurious wakeups
-        waitCondition.wait(&mutex);
-    }
+bool ThreadsBase::IsTerminated()
+{
+    return ThreadFunction::threadPool().IsTerminated();
 }
 
 void ThreadsBase::TerminateAllAsyncTasks()
@@ -56,7 +55,14 @@ AsyncResult ThreadsBase::DoQThreadWorkerWithResult(QObject* threadObject, const 
     return QtInlineEventWithResult::Post(task, threadObject, priority);
 }
 
-AsyncResult ThreadsBase::Async(const FAction& task)
+AsyncResult ThreadsBase::Async(const FAction& task, EPriority priority)
 {
-    return ThreadFunction::Async(task);
+    return ThreadFunction::Async(task, priority);
+}
+
+void ThreadsBase::AsyncSemaphore(const SharedPointer<FutureResult>& result, const FAction& task)
+{
+    *result += Async([result, task]{
+        task();
+    });
 }

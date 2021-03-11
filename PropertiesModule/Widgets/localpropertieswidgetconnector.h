@@ -1,6 +1,8 @@
 #ifndef LOCALPROPERTIESWIDGETCONNECTOR_H
 #define LOCALPROPERTIESWIDGETCONNECTOR_H
 
+#ifdef QT_GUI_LIB
+
 #include <SharedModule/internal.hpp>
 #include <SharedModule/External/external.hpp>
 
@@ -38,14 +40,23 @@ class _Export LocalPropertiesWidgetConnectorBase : public QObject
 public:
     LocalPropertiesWidgetConnectorBase(const Setter& widgetSetter, const Setter& propertySetter);
 
+    void Update() { m_widgetSetter(); }
+
 protected:
     friend class ChangeGuard;
     Setter m_widgetSetter;
     Setter m_propertySetter;
     QtLambdaConnections m_connections;
-    DispatchersConnections m_dispatcherConnections;
+    DispatcherConnectionsSafe m_dispatcherConnections;
     bool m_ignorePropertyChange;
     bool m_ignoreWidgetChange;
+};
+
+class _Export LocalPropertiesLabelConnector : public LocalPropertiesWidgetConnectorBase
+{
+    using Super = LocalPropertiesWidgetConnectorBase;
+public:
+    LocalPropertiesLabelConnector(LocalPropertyString* property, class QLabel* label);
 };
 
 class _Export LocalPropertiesCheckBoxConnector : public LocalPropertiesWidgetConnectorBase
@@ -61,7 +72,7 @@ class _Export LocalPropertiesComboBoxConnector : public LocalPropertiesWidgetCon
 {
     using Super = LocalPropertiesWidgetConnectorBase;
 public:
-    LocalPropertiesComboBoxConnector(LocalPropertyNamedUint* property, class QComboBox* comboBox);
+    LocalPropertiesComboBoxConnector(LocalPropertyInt* property, class QComboBox* comboBox);
 };
 
 class _Export LocalPropertiesLineEditConnector : public LocalPropertiesWidgetConnectorBase
@@ -91,7 +102,7 @@ class _Export LocalPropertiesRadioButtonsConnector : public LocalPropertiesWidge
     Q_OBJECT
     using Super = LocalPropertiesWidgetConnectorBase;
 public:
-    LocalPropertiesRadioButtonsConnector(LocalPropertyNamedUint* property, const Stack<class QRadioButton*>& buttons);
+    LocalPropertiesRadioButtonsConnector(LocalPropertyInt* property, const Stack<class QRadioButton*>& buttons);
 
 private:
     qint32 m_currentIndex;
@@ -107,5 +118,20 @@ public:
     };
     LocalPropertiesTextEditConnector(LocalProperty<QString>* property, class QTextEdit* textEdit, SubmitType submitType = SubmitType_OnEveryChange);
 };
+
+class _Export LocalPropertiesDateConnector : public LocalPropertiesWidgetConnectorBase
+{
+    using Super = LocalPropertiesWidgetConnectorBase;
+public:
+    LocalPropertiesDateConnector(LocalProperty<QDate>* property, class QDateEdit* dateTime);
+};
+
+class _Export LocalPropertiesDateTimeConnector : public LocalPropertiesWidgetConnectorBase
+{
+    using Super = LocalPropertiesWidgetConnectorBase;
+public:
+    LocalPropertiesDateTimeConnector(LocalProperty<QDateTime>* property, class QDateTimeEdit* dateTime);
+};
+#endif
 
 #endif // LOCALPROPERTIESWIDGETCONNECTOR_H

@@ -3,26 +3,38 @@
 #include "processfactory.h"
 
 ProcessBase::ProcessBase()
-    : m_cancelable(false)
+    : m_interruptor(nullptr)
+    , m_silentIfOneStep(false)
 {
 
 }
 
 ProcessBase::~ProcessBase()
 {
-
+    if(m_interruptor != nullptr) {
+        m_interruptor->OnInterrupted -= this;
+    }
 }
 
-void ProcessBase::SetCancelable(bool cancelable)
+void ProcessBase::SetInterruptor(const Interruptor& interruptor)
 {
-    m_cancelable = cancelable;
+    Q_ASSERT(m_interruptor == nullptr);
+    m_interruptor = ::make_scoped<Interruptor>(interruptor);
+    m_interruptor->OnInterrupted += { this, [this]{
+        m_processValue->finish();
+    }};
+}
+
+const std::wstring& ProcessBase::GetTitle() const
+{
+    return m_processValue->GetTitle();
 }
 
 void ProcessBase::BeginProcess(const wchar_t* title, bool shadow)
 {
     m_processValue = nullptr;
     m_processValue.reset(shadow ? ProcessFactory::Instance().createShadowIndeterminate() : ProcessFactory::Instance().createIndeterminate());
-    m_processValue->init(m_cancelable, title);
+    m_processValue->init(m_interruptor.get(), title);
 }
 
 void ProcessBase::BeginProcess(const wchar_t* title, int stepsCount, int wantedCount, bool shadow)
@@ -34,7 +46,8 @@ void ProcessBase::BeginProcess(const wchar_t* title, int stepsCount, int wantedC
     }
     m_processValue = nullptr;
     auto value = shadow ? ProcessFactory::Instance().createShadowDeterminate() : ProcessFactory::Instance().createDeterminate();
-    value->init(m_cancelable, title, stepsCount);
+    value->SetDummy(m_silentIfOneStep && m_divider < 2);
+    value->init(m_interruptor.get(), title, stepsCount);
     m_processValue.reset(value);
 }
 

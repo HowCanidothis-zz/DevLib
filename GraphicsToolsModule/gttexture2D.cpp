@@ -9,6 +9,18 @@ GtTexture::~GtTexture()
     if(m_textureId) f->glDeleteTextures(1, &m_textureId);
 }
 
+void GtTexture::SetData(const void* pixels)
+{
+    m_format.Pixels = pixels;
+    Allocate();
+}
+
+void GtTexture::SetFormat(const GtTextureFormat& format)
+{
+    m_format = format;
+    m_allocated = false;
+}
+
 void GtTexture::SetSize(quint32 w, quint32 h)
 {
     QSize new_size = QSize(w,h);
@@ -20,9 +32,9 @@ void GtTexture::SetSize(quint32 w, quint32 h)
 
 void GtTexture::SetInternalFormat(gTexInternalFormat internal_format)
 {
-    if(this->m_internalFormat != internal_format)
+    if(m_internalFormat != internal_format)
     {
-        this->m_internalFormat = internal_format;
+        m_internalFormat = internal_format;
         m_allocated = false;
     }
 }
@@ -70,7 +82,8 @@ GtTexture* GtTexture::Create(OpenGLFunctions* f, gTexTarget target, gTexInternal
     Q_ASSERT(result);
     result->SetInternalFormat(internal_format);
     result->SetSize(size.width(), size.height());
-    result->Allocate(*format);
+    result->SetFormat(*format);
+    result->Allocate();
     return result;
 }
 
@@ -97,13 +110,10 @@ void GtTexture2D::LoadImg(const QString& img_file)
     SetSize(img.width(), img.height());
     SetInternalFormat(GL_RGBA);
     f->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    GtTextureFormat format;
-    format.Pixels = gl_img.constBits();
-    format.PixelFormat = GL_RGBA;
-    format.PixelType = GL_UNSIGNED_BYTE;
-    format.WrapS = GL_REPEAT;
-    format.WrapT = GL_REPEAT;
-    Allocate(format);
+    m_format.Pixels = gl_img.constBits();
+    m_format.PixelFormat = GL_RGBA;
+    m_format.PixelType = GL_UNSIGNED_BYTE;
+    Allocate();
 }
 
 void GtTexture2D::Load(const QString& dds_file)
@@ -127,20 +137,22 @@ void GtTexture2D::bindTexture(OpenGLFunctions* f, gTexUnit unit, gTexID id)
     f->glBindTexture(GL_TEXTURE_2D, id);
 }
 
-void GtTexture2D::Allocate(const GtTextureFormat& format)
+void GtTexture2D::Allocate()
 {
     if(IsCreated() || Create()) {
         GtTextureBinder binder(this);
         if(!m_allocated) {
-            f->glTexImage2D(GL_TEXTURE_2D, 0, m_internalFormat, m_size.width(), m_size.height(), 0, format.PixelFormat, format.PixelType, format.Pixels);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, format.MinFilter);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, format.MagFilter);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format.WrapS);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format.WrapT);
+            f->glTexImage2D(GL_TEXTURE_2D, 0, m_internalFormat, m_size.width(), m_size.height(), 0, m_format.PixelFormat, m_format.PixelType, m_format.Pixels);
+            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_format.MinFilter);
+            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_format.MagFilter);
+            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, m_format.WrapS);
+            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, m_format.WrapT);
+            if(m_format.MipMapLevels != 0) {
+                f->glGenerateMipmap(GL_TEXTURE_2D);
+            }
             m_allocated = true;
-        }
-        else {
-            f->glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_size.width(), m_size.height(), format.PixelFormat, format.PixelType, format.Pixels);
+        } else {
+            f->glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_size.width(), m_size.height(), m_format.PixelFormat, m_format.PixelType, m_format.Pixels);
         }
     }
 }
@@ -153,7 +165,7 @@ GtTexture2DMultisampled::GtTexture2DMultisampled(OpenGLFunctions* f, quint32 sam
     Q_ASSERT(samples > 1 && (samples % 2) == 0);
 }
 
-void GtTexture2DMultisampled::Allocate(const GtTextureFormat&)
+void GtTexture2DMultisampled::Allocate()
 {
     if(IsCreated() || Create()) {
         GtTextureBinder binder(this);

@@ -5,6 +5,23 @@
 #include <QLoggingCategory>
 
 #include <functional>
+#include <cmath>
+
+class Nanosecs
+{
+public:
+    Nanosecs(double nsecs)
+        : _nsecs(nsecs)
+    {}
+
+    double TimesPerSecond() const;
+    QString ToString(const QString& caption) const;
+
+    operator double() const { return _nsecs; }
+
+private:
+    double _nsecs;
+};
 
 #ifndef STATIC_LINK
 #if defined(LIBRARY)
@@ -20,6 +37,12 @@ typedef qint32 count_t;
 typedef std::function<void ()> FAction;
 
 class QTextStream;
+
+enum class EPriority {
+    High,
+    Low,
+    Count
+};
 
 class _Export DirBinder
 {
@@ -43,6 +66,41 @@ inline double sign(double value)
         return 1.0;
     }
     return 0.0;
+}
+
+inline bool fuzzyCompare(double v1, double v2, double epsilon = std::numeric_limits<double>().epsilon())
+{
+    return qAbs(v1 - v2) < epsilon;
+}
+
+inline bool fuzzyCompare(float v1, float v2, float epsilon = std::numeric_limits<float>().epsilon())
+{
+    return qAbs(v1 - v2) < epsilon;
+}
+
+inline bool fuzzyIsNull(float v1, float epsilon = std::numeric_limits<float>().epsilon())
+{
+    return qAbs(v1 - 0.f) < epsilon;
+}
+
+inline bool fuzzyIsNull(double v1, double epsilon = std::numeric_limits<double>().epsilon())
+{
+    return qAbs(v1 - 0.0) < epsilon;
+}
+
+inline double round(double value, int decimals)
+{
+    return std::round(value * decimals) / decimals;
+}
+
+inline float round(float value, int decimals)
+{
+    return std::round(value * decimals) / decimals;
+}
+
+inline QString dToStr(double value, qint32 precision = 2)
+{
+    return QString::number(value, 'd', precision);
 }
 
 namespace adapters {
@@ -78,11 +136,18 @@ Range<It> range(It begin, It end) {
 
 }
 
+template<typename Enum>
+struct EnumHelper
+{
+    static QStringList GetNames();
+};
+
 enum Sides {
     Left,
     Right,
     Bottom,
-    Top
+    Top,
+    Sides_Count
 };
 
 namespace guards {
