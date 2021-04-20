@@ -15,6 +15,7 @@
 
 #include "ProgressBars/mainprogressbar.h"
 #include "ProgressBars/shadowprogressbar.h"
+#include "ProgressBars/shadowprogressbaroneforall.h"
 
 #include "ToolTip/tooltipwidget.h"
 #include "ToolTip/tooltiparrowwidget.h"
@@ -25,6 +26,7 @@
 #include "Attachments/windowresizeattachment.h"
 #include "Attachments/focuswatcherattachment.h"
 #include "Attachments/floatingwidgetlocationattachment.h"
+#include "Attachments/widgetsmenulocationattachment.h"
 
 #include "Components/componentplacer.h"
 
@@ -39,6 +41,8 @@
 
 #include "TableViews/widgetsactivetableviewbase.h"
 #include "TableViews/widgetsadjustabletableview.h"
+
+#include "Widgets/widgetsspinboxwithcustomdisplay.h"
 
 #include "Managers/widgetsdialogsmanager.h"
 

@@ -11,6 +11,7 @@
 #include <QRadioButton>
 #include <QLabel>
 #include <QDateTimeEdit>
+#include <QMenu>
 
 LocalPropertiesWidgetConnectorBase::LocalPropertiesWidgetConnectorBase(const Setter& widgetSetter, const Setter& propertySetter)
     : m_widgetSetter([this, widgetSetter](){
@@ -31,6 +32,16 @@ LocalPropertiesWidgetConnectorBase::LocalPropertiesWidgetConnectorBase(const Set
     , m_ignoreWidgetChange(false)
 {
     m_widgetSetter();
+}
+
+LocalPropertiesMenuLabelConnector::LocalPropertiesMenuLabelConnector(LocalPropertyString* property, QMenu* menu)
+    : Super([menu, property]{
+        menu->setTitle(*property);
+    }, []{})
+{
+    property->GetDispatcher().Connect(this, [this]{
+        m_widgetSetter();
+    }).MakeSafe(m_dispatcherConnections);
 }
 
 LocalPropertiesCheckBoxConnector::LocalPropertiesCheckBoxConnector(LocalProperty<bool>* property, QCheckBox* checkBox)
@@ -102,10 +113,14 @@ LocalPropertiesTextEditConnector::LocalPropertiesTextEditConnector(LocalProperty
     }
 }
 
-LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(LocalPropertyDouble* property, QDoubleSpinBox* spinBox)
-    : Super([spinBox, property](){
-                spinBox->setRange(property->GetMin(), property->GetMax());
-                spinBox->setValue(*property);
+LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(LocalPropertyDouble* property, QDoubleSpinBox* spinBox, double presicion)
+    : Super([spinBox, property, presicion](){
+                if(!fuzzyCompare(spinBox->minimum(), property->GetMin(), presicion) || !fuzzyCompare(spinBox->maximum(), property->GetMax(), presicion)) {
+                    spinBox->setRange(property->GetMin(), property->GetMax());
+                }
+                if(!fuzzyCompare(spinBox->value(), *property, presicion)) {
+                    spinBox->setValue(*property);
+                }
             },
             [spinBox, property](){
                 *property = spinBox->value();
@@ -125,10 +140,14 @@ LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(Loc
     });
 }
 
-LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(LocalPropertyFloat* property, QDoubleSpinBox* spinBox)
-    : Super([spinBox, property](){
-                spinBox->setRange(property->GetMin(), property->GetMax());
-                spinBox->setValue(*property);
+LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(LocalPropertyFloat* property, QDoubleSpinBox* spinBox, float presicion)
+    : Super([spinBox, property, presicion](){
+                if(!fuzzyCompare((float)spinBox->minimum(), property->GetMin(), presicion) || !fuzzyCompare((float)spinBox->maximum(), property->GetMax(), presicion)) {
+                    spinBox->setRange(property->GetMin(), property->GetMax());
+                }
+                if(!fuzzyCompare((float)spinBox->value(), *property, presicion)) {
+                    spinBox->setValue(*property);
+                }
             },
             [spinBox, property](){
                 *property = spinBox->value();
@@ -150,8 +169,12 @@ LocalPropertiesDoubleSpinBoxConnector::LocalPropertiesDoubleSpinBoxConnector(Loc
 
 LocalPropertiesSpinBoxConnector::LocalPropertiesSpinBoxConnector(LocalPropertyInt* property, QSpinBox* spinBox)
     : Super([spinBox, property](){
-                spinBox->setRange(property->GetMin(), property->GetMax());
-                spinBox->setValue(*property);
+                if(spinBox->minimum() != property->GetMin() || spinBox->maximum() != property->GetMax()) {
+                    spinBox->setRange(property->GetMin(), property->GetMax());
+                }
+                if(spinBox->value() != *property) {
+                    spinBox->setValue(*property);
+                }
             },
             [spinBox, property](){
                 *property = spinBox->value();

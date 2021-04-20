@@ -134,7 +134,7 @@ QTreeView {
 }
 
 MenuBar {
-    min-height: 30;
+    min-height: 28px;
 }
 
 MenuBar {
@@ -176,8 +176,12 @@ QPushButton#BtnClose:hover {
 }
 
 MenuBarMovePane {
-    min-height: 30;
-    max-height: 30;
+    min-height: 28px;
+    max-height: 28px;
+}
+
+MenuBarMovePane QPushButton{
+    min-height: 15px;
 }
 
 MenuBar QMenuBar {
@@ -240,11 +244,17 @@ QPushButton#BtnClose:hover {
     border-radius: none;
 }
 
-TreeBar QLabel#Title {
+TreeBar QFrame#Header {
+    border: none;
+    border-bottom: 1px solid #3C3C3C;
+    border-radius: 0px;
+    padding-right: 15px;
     padding-left: 15px;
+}
+
+TreeBar QLabel {    
     padding-top: 12px;
     padding-bottom: 11px;
-    background: #252526;
 }
 
 MenuBarMovePane QLabel#Icon {
@@ -270,4 +280,107 @@ MenuBar QLabel#LogoIcon {
     padding-right: 10px;
     border: none;
     image: url(:/Logo.svg);
+}
+
+QFrame#MainFooter {
+    min-height: 22px;
+    max-height: 22px;
+    border-radius: 0px;
+    border: none;
+    padding: 0px 15px 0px 15px; 
+}
+
+DDFooter QMenuBar {
+    font-size: 12px;
+    background: #007acc;
+}
+
+DDFooter QMenu::item{
+    font-size: 12px;
+    background: #007acc;
+}
+
+DDFooter QMenu::item::selected{
+    background: #1F8AD2;
+}
+
+DDFooter QMenuBar::item {
+  color: white;
+  background: transparent;
+  padding: 5px 8px 2px 8px;
+}
+
+DDFooter QMenuBar::item::selected {
+    background: #1F8AD2;
+} 
+
+DDFooter QMenuBar::item::pressed:disabled {
+    background: #007acc;
+} 
+
+QFrame#MainFooter QLabel#FooterProgressBarLabel{
+    font-size: 8px;
+    qproperty-alignment: 'AlignVCenter | AlignLeft';
+}
+
+QFrame[ApplicationMode="1"]{
+    background: #68217A;
+}
+
+QFrame[ApplicationMode="2"]{
+    background: #007acc;
+}
+
+QFrame[ApplicationMode="1"] QWidget{
+    background: #68217A;
+    color: white;
+}
+
+QFrame[ApplicationMode="2"] QWidget{
+    background: #007acc;
+    color: white;
+}
+
+WidgetsEditingObjectSaveCancelButtons {
+    padding: 10px 20px 10px 20px;
+}
+
+QFrame[Footer="true"]
+{
+    border: none;
+    border-radius: 0px;
+    padding: 10px 20px 10px 20px;
+}
+
+QFrame[Footer="true"] QLabel
+{
+    font-size: 12px;
+}
+
+QFrame[Footer="true"] QCheckBox
+{
+    font-size: 12px;
+}
+
+QFrame[Footer="true"] QLabel
+{
+    font-size: 12px;
+}
+
+QFrame[Footer="true"] QDoubleSpinBox
+{
+    font-size: 12px;
+}
+
+QFrame[Footer="true"] QSpinBox
+{
+    font-size: 12px;
+}
+
+DDFooter QLabel{
+    font-size: 12px;
+}
+
+OffsetView {
+    padding: 10px 10px 10px 10px;
 }

@@ -8,10 +8,7 @@
 class DelayedCallObject
 {
 public:
-    DelayedCallObject(qint32 delayMsecs = 0, const ThreadHandlerNoThreadCheck& handler = ThreadHandlerNoCheckMainLowPriority)
-        : m_threadHandler(handler)
-        , m_delay(delayMsecs)
-    {}
+    DelayedCallObject(qint32 delayMsecs = 0, const ThreadHandlerNoThreadCheck& handler = ThreadHandlerNoCheckMainLowPriority);
 
     ~DelayedCallObject()
     {
@@ -22,10 +19,15 @@ public:
 
     Dispatcher OnDeleted;
 
+    qint32 GetId() const { return m_id; }
+
 private:
+    static qint32 generateId();
+
     friend class DelayedCallManager;
     ThreadHandlerNoThreadCheck m_threadHandler;
     qint32 m_delay;
+    qint32 m_id;
 };
 
 class DelayedCall
@@ -70,17 +72,16 @@ public:
 
 private:
     static QMutex* mutex();
-    static QHash<void*, DelayedCallPtr>& cachedCalls();
+    static QHash<qint32, DelayedCallPtr>& cachedCalls();
 };
 
 class DelayedCallDispatchersCommutator : public Dispatcher
 {
 public:
-    DelayedCallDispatchersCommutator();
+    DelayedCallDispatchersCommutator(qint32 msecs = 0, const ThreadHandlerNoThreadCheck& threadHandler = ThreadHandlerNoCheckMainLowPriority);
 
     // NOTE. It's eternal connection, non permanent connections will be added further if it becomes needed
-    void Subscribe(const ThreadHandlerNoThreadCheck& threadHandler, const QVector<Dispatcher*>& dispatchers);
-    void SubscribeMain(const QVector<Dispatcher*>& dispatchers) { Subscribe(ThreadHandlerNoCheckMainLowPriority, dispatchers); }
+    DispatcherConnections Subscribe(const QVector<CommonDispatcher<>*>& dispatchers);
 
 private:
     DelayedCallObject m_delayedCallObject;

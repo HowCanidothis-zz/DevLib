@@ -1,12 +1,27 @@
 #include "delayedcall.h"
 
+#include <QUuid>
+
 #include "SharedModule/Threads/threadtimer.h"
+
+DelayedCallObject::DelayedCallObject(qint32 delayMsecs, const ThreadHandlerNoThreadCheck& handler)
+    : m_threadHandler(handler)
+    , m_delay(delayMsecs)
+    , m_id(generateId())
+{
+}
+
+qint32 DelayedCallObject::generateId()
+{
+    static qint32 id = 0;
+    return id++;
+}
 
 DelayedCall::DelayedCall(const FAction& action, QMutex* mutex, DelayedCallObject* object)
     : m_action(action)
     , m_mutex(mutex)
 {
-    m_connection = object->OnDeleted.Connect(nullptr, [this]{
+    m_connection = object->OnDeleted.Connect(this, [this]{
         QMutexLocker locker(m_mutex);
         m_action = []{};
     }).MakeSafe();
@@ -73,26 +88,35 @@ QMutex* DelayedCallManager::mutex()
     return &result;
 }
 
-QHash<void*, DelayedCallPtr>& DelayedCallManager::cachedCalls()
+QHash<qint32, DelayedCallPtr>& DelayedCallManager::cachedCalls()
 {
-    static QHash<void*, DelayedCallPtr> result;
+    static QHash<qint32, DelayedCallPtr> result;
     return result;
 }
 
 AsyncResult DelayedCallManager::CallDelayed(DelayedCallObject* object, const FAction& action)
 {
+    static thread_local bool locked = false;
+    if(locked) {
+        return AsyncError();
+    }
     QMutexLocker locker(mutex());
-    auto foundIt = cachedCalls().find(object);
+    guards::LambdaGuard guard([]{ locked = false; }, []{ locked = true; });
+    auto foundIt = cachedCalls().find(object->GetId());
     if(foundIt == cachedCalls().end()) {
         auto delayedCall = object->m_delay != 0 ? ::make_shared<DelayedCallDelayOnCall>(action, mutex(), object) :
                                                                                    ::make_shared<DelayedCall>(action, mutex(), object);
-        foundIt = cachedCalls().insert(object, delayedCall);
+        foundIt = cachedCalls().insert(object->GetId(), delayedCall);
         auto result = delayedCall->Invoke(object->m_threadHandler, [delayedCall]{
             delayedCall->Call();
         }, object->m_delay);
-        delayedCall->GetResult().Then([object](bool){
+        qint32 id = object->GetId();
+        delayedCall->GetResult().Then([id](bool){
+            if(locked) {
+                return;
+            }
             QMutexLocker locker(mutex());
-            cachedCalls().remove(object);
+            cachedCalls().remove(id);
         });
         delayedCall->SetResult(result);
         return delayedCall->GetResult();
@@ -107,20 +131,23 @@ AsyncResult DelayedCallManager::CallDelayed(DelayedCallObject* object, const FAc
     return foundIt.value()->GetResult();
 }
 
-DelayedCallDispatchersCommutator::DelayedCallDispatchersCommutator()
+DelayedCallDispatchersCommutator::DelayedCallDispatchersCommutator(qint32 msecs, const ThreadHandlerNoThreadCheck& threadHandler)
+    : m_delayedCallObject(msecs, threadHandler)
 {
 
 }
 
-void DelayedCallDispatchersCommutator::Subscribe(const ThreadHandlerNoThreadCheck& threadHandler, const QVector<Dispatcher*>& dispatchers)
+DispatcherConnections DelayedCallDispatchersCommutator::Subscribe(const QVector<CommonDispatcher<>*>& dispatchers)
 {
-    auto callOnChanged = [this, threadHandler]{
+    auto callOnChanged = [this]{
         DelayedCallManager::CallDelayed(&m_delayedCallObject, [this]{
             Invoke();
         });
     };
 
+    DispatcherConnections result;
     for(auto* dispatcher : dispatchers) {
-        dispatcher->Connect(this, callOnChanged); // Note. eternal subscribe
+        result += dispatcher->Connect(this, callOnChanged); // Note. eternal subscribe
     }
+    return result;
 }

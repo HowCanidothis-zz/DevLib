@@ -5,6 +5,7 @@
 #include <QTableView>
 #include <QHeaderView>
 #include <QClipboard>
+#include <QApplication>
 
 void WidgetAppearance::SetVisibleAnimated(QWidget* widget, bool visible)
 {
@@ -75,9 +76,15 @@ void WidgetContent::CopySelectedTableContentsToClipboard(QTableView* tableView)
         }
         if(rowIndex != index.row()) {
             rowIndex = index.row();
+            if(!text.isEmpty()) {
+                text.resize(text.size() - 1);
+            }
             text += "\n";
         }
         text += index.data().toString() + "\t";
+    }
+    if(!text.isEmpty()) {
+        text.resize(text.size() - 1);
     }
 
     QClipboard* clipboard = qApp->clipboard();

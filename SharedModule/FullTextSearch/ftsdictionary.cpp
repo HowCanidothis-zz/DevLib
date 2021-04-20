@@ -11,7 +11,7 @@ FTSDictionary::FTSDictionary()
 {
 }
 
-void FTSDictionary::addRow(FTSObject* object, const QString& string, qint32 rowId)
+void FTSDictionary::addRow(FTSObject* object, const QString& string, size_t rowId)
 {
     parseString(string, [this, object, rowId](const Name& stringPart){
         m_dictionary[stringPart].insert({object,rowId});
@@ -23,6 +23,18 @@ void FTSMatchResult::Sort()
     std::sort(begin(), end(), [](const FTSMatchedObject& f, const FTSMatchedObject& s){
         return f.matchesCount > s.matchesCount;
     });
+}
+
+void FTSMatchResult::SortAndFilter()
+{
+    if(!isEmpty()) {
+        Sort();
+        auto bestMatches = first().matchesCount;
+        auto newEnd = std::remove_if(begin(), end(), [bestMatches](const FTSMatchedObject& f){
+            return bestMatches != f.matchesCount;
+        });
+        resize(std::distance(begin(), newEnd));
+    }
 }
 
 FTSMatchResult FTSDictionary::Match(const QString& string) const
@@ -94,7 +106,7 @@ FTSObject::FTSObject(FTSDictionary* dictionary)
 }
 
 
-void FTSObject::AddRow(const QString& string, qint32 rowId)
+void FTSObject::AddRow(const QString& string, size_t rowId)
 {
     m_dictionary->addRow(this, string, rowId);
 }

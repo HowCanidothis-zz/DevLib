@@ -1,0 +1,44 @@
+MainProgressBar {
+    background: #1464A0;
+    qproperty-windowOpacity: 0.8;
+}
+
+MainProgressBar QRoundProgressBar {
+    alternate-background-color: gray;
+    color: black;
+    font-size: 12px;
+    qproperty-ringWidth: 12;
+}
+
+MainProgressBar QRoundProgressBar#SubProgressBar {
+    color: transparent;
+    font-size: 2px;
+    qproperty-ringWidth: 10;
+}
+
+QWidget#FooterProgressBar{
+    max-height: 5px;
+    max-width: 40px;
+    border: none;
+}
+
+QProgressBar {
+  border: 1px solid white;
+  color: #F0F0F0;
+  border-radius: 4px;
+  text-align: center;
+}
+
+QProgressBar::chunk {
+  background-color: white;
+  color: #1E1E1E;
+  border-radius: 4px;
+}
+
+QFrame[ApplicationMode="1"] QProgressBar{
+    background-color: #68217A;
+}
+
+QFrame[ApplicationMode="2"] QProgressBar{
+    background-color: #007acc;
+}

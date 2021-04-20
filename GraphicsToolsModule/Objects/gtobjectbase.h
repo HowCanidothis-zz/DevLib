@@ -15,7 +15,7 @@ public:
     virtual void MapProperties(QtObserver* ) {}
 };
 
-class GtDrawableBase : public GtObjectBase
+class GtDrawableBase : public GtObjectBase ATTACH_MEMORY_SPY_2(GtDrawableBase)
 {
 public:
     GtDrawableBase(class GtRenderer* renderer);
@@ -26,6 +26,10 @@ public:
     AsyncResult Update(const FAction& f);
 
     ThreadHandler CreateThreadHandler();
+    ThreadHandlerNoThreadCheck CreateThreadNoCheckHandler();
+
+    template<class T>
+    T* As() { return reinterpret_cast<T*>(this); }
 
 protected:
     friend class GtScene;
@@ -37,6 +41,7 @@ protected:
     virtual void onInitialize(OpenGLFunctions* f) = 0;
     virtual void onDestroy(OpenGLFunctions* f) = 0;
 
+    void delayedDraw(const FAction& draw);
     void enableDepthTest();
     void disableDepthTest();
     const GtRenderProperties& getRenderProperties() const;

@@ -1,51 +1,66 @@
 #ifndef THREADCALCULATOR_H
 #define THREADCALCULATOR_H
 
-#include <QApplication>
-
 #include "SharedModule/dispatcher.h"
 #include "threadsbase.h"
 
 template<class T>
-class ThreadCalculatorBase
+struct ThreadCalculatorData
+{
+    using Calculator = std::function<T ()>;
+    using Preparator = FAction;
+
+    std::atomic_bool Destroyed = false;
+    bool NeedRecalculate = false;
+    bool Calculating = false;
+    ThreadHandler Handler;
+    Calculator CalculatorHandler = []{ return T(); };
+    Preparator PreparatorHandler = []{};
+
+    ThreadCalculatorData(const ThreadHandler& handler)
+        : Handler(handler)
+    {}
+};
+
+template<class T>
+using ThreadCalculatorDataPtr = SharedPointer<ThreadCalculatorData<T>>;
+
+template<class T>
+class ThreadCalculator
 {
 public:
-    ThreadCalculatorBase(const ThreadHandler& threadHandler)
-        : m_isCalculating(false)
-        , m_needToRecalculate(false)
-        , m_threadHandler(threadHandler)
-        , m_destroying(false)
+    ThreadCalculator(const ThreadHandler& threadHandler)
+        : m_data(::make_shared<ThreadCalculatorData<T>>(threadHandler))
     {}
-    ~ThreadCalculatorBase()
+    ~ThreadCalculator()
     {
-        safeQuit();
+        SafeQuit();
     }
 
-    void Calculate()
+    void Calculate(const typename ThreadCalculatorData<T>::Calculator& calculator, const typename ThreadCalculatorData<T>::Preparator& preparator = []{})
     {
-        m_threadHandler([this]{
-            if(m_isCalculating) {
-                m_needToRecalculate = true;
+        m_data->Handler([this, calculator, preparator]{
+            m_data->PreparatorHandler = preparator;
+            m_data->CalculatorHandler = calculator;
+
+            if(m_data->Calculating) {
+                m_data->NeedRecalculate = true;
                 return;
             }
 
-            m_isCalculating = true;
-            prepare();
-            ThreadsBase::Async([this]{
-                if(m_destroying) {
-                    m_isCalculating = false;
-                    return;
-                }
-                auto result = calculate();
-                m_threadHandler([this, result]{
-                    bool destroying = m_destroying;
-                    m_isCalculating = false;
-                    if(destroying) {
+            m_data->Calculating = true;
+            m_data->PreparatorHandler();
+            auto data = m_data;
+            ThreadsBase::Async([this, data, calculator]{
+                auto result = calculator();
+                data->Handler([this, result, data]{
+                    if(data->Destroyed) {
                         return;
                     }
-                    if(m_needToRecalculate) {
-                        m_needToRecalculate = false;
-                        Calculate();
+                    data->Calculating = false;
+                    if(data->NeedRecalculate) {
+                        data->NeedRecalculate = false;
+                        Calculate(data->CalculatorHandler, data->PreparatorHandler);
                     } else {
                         OnCalculated(result);
                     }
@@ -54,75 +69,15 @@ public:
         });
     }
 
+    void SafeQuit()
+    {
+        m_data->Destroyed = true;
+    }
+
     CommonDispatcher<const T&> OnCalculated;
 
 protected:
-    void safeQuit()
-    {
-        m_destroying = true;
-        while(m_isCalculating) {
-            qApp->processEvents();
-        }
-    }
-
-    virtual T calculate() const = 0;
-    virtual void prepare() {}
-
-protected:
-    ThreadHandler m_threadHandler;
-
-private:
-    std::atomic_bool m_isCalculating;
-    std::atomic_bool m_needToRecalculate;
-    std::atomic_bool m_destroying;
-};
-
-template<class T>
-class ThreadCalculatorLambda : public ThreadCalculatorBase<T>
-{
-    using Super = ThreadCalculatorBase<T>;
-public:
-    using Calculator = std::function<T ()>;
-    using Preparator = FAction;
-    ThreadCalculatorLambda(const ThreadHandler& threadHandler)
-        : Super(threadHandler)
-        , m_calculator([]{ return T(); })
-    {}
-
-    void Calculate(const Calculator& calculator, const Preparator& preparator = []{})
-    {
-        {
-            QMutexLocker locker(&m_mutex);
-            m_calculator = calculator;
-            m_preparator = preparator;
-        }
-        Super::Calculate();
-    }
-
-protected:
-    T calculate() const override
-    {
-        Calculator calculator;
-        {
-            QMutexLocker locker(&m_mutex);
-            calculator = m_calculator;
-        }
-        return calculator();
-    }
-    void prepare() override
-    {
-        Preparator preparator;
-        {
-            QMutexLocker locker(&m_mutex);
-            preparator = m_preparator;
-        }
-        preparator();
-    }
-
-private:
-    mutable QMutex m_mutex;
-    Calculator m_calculator;
-    Preparator m_preparator;
+    ThreadCalculatorDataPtr<T> m_data;
 };
 
 #endif // THREADCALCULATOR_H

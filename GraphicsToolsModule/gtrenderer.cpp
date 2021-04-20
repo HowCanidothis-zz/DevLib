@@ -44,13 +44,18 @@ void GtRenderer::disableDepthTest()
     glDisable(GL_DEPTH_TEST);
 }
 
+void GtRenderer::addDelayedDraw(const FAction& drawAction)
+{
+    m_delayedDraws.append(drawAction);
+}
+
 GtRenderer::GtRenderer(const QSurfaceFormat& format)
     : Super(format, nullptr)
     , m_sharedData(new GtRendererSharedData(this))
 {   
     construct();
-    auto textShaderProgram = CreateShaderProgram("DefaultTextShaderProgram");
-    textShaderProgram->SetShaders(GT_SHADERS_PATH, "sdftext.vert", "sdftext.geom", "sdftext.frag");
+    CreateShaderProgram("DefaultTextShaderProgram")->SetShaders(GT_SHADERS_PATH, "sdftext.vert", "sdftext.geom", "sdftext.frag");
+    CreateShaderProgram("DefaultText3DShaderProgram")->SetShaders(GT_SHADERS_PATH, "sdftext.vert", "sdftext3d.geom", "sdftext.frag");
     CreateShaderProgram("DefaultScreenTextShaderProgram")->SetShaders(GT_SHADERS_PATH, "sdfscreentext.vert", "sdfscreentext.geom", "sdftext.frag");
 }
 
@@ -183,11 +188,11 @@ GtRendererPtr GtRenderer::CreateSharedRenderer()
     return m_childRenderers.last();
 }
 
-void GtRenderer::onInitialize()
+bool GtRenderer::onInitialize()
 {
     if(!initializeOpenGLFunctions()) {
         qCInfo(LC_SYSTEM) << "Cannot initialize opengl functions";
-        return;
+        return false;
     }
 
     currentRenderer() = this;
@@ -284,6 +289,8 @@ void GtRenderer::onInitialize()
     }
 
     OnInitialized();
+
+    return true;
 }
 
 SharedPointer<guards::LambdaGuard> GtRenderer::SetDefaultQueueNumber(qint32 queueNumber)
@@ -319,7 +326,7 @@ void GtRenderer::onDraw()
         if(fbo == nullptr || !controller->Enabled) {
             continue;
         }
-
+        m_delayedDraws.clear();
         auto* depthFbo = controller->m_depthFbo.get();
         auto* camera = controller->m_camera.get();
         auto cameraStateChanged = camera->IsFrameChangedReset();
@@ -343,12 +350,12 @@ void GtRenderer::onDraw()
         m_side->Data().Set(Vector3F::crossProduct(m_up->Data().Get(), m_forward->Data().Get()).normalized());
         m_camera->Data().Set(camera);
 
-        fbo->bind();
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
         { // TODO. Fixing binding issues with shared resources
             QMutexLocker locker(&m_sharedData->Mutex);
+            fbo->bind();
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
             if(m_renderProperties.contains(RENDER_PROPERTY_FORCE_DISABLE_DEPTH_TEST)) {
                 glDisable(GL_DEPTH_TEST);
             } else {
@@ -356,16 +363,16 @@ void GtRenderer::onDraw()
             }
             m_scene->draw(this);
             controller->draw(this);
-        }
+            for(const auto& draws : m_delayedDraws) {
+                draws();
+            }
 
-        fbo->release();
+            fbo->release();
 
-        depthFbo->Bind();
+            depthFbo->Bind();
 
-        glClear(GL_DEPTH_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT);
 
-        { // TODO. Fixing binding issues with shared resources
-            QMutexLocker locker(&m_sharedData->Mutex);
             m_renderProperties[RENDER_PROPERTY_DRAWING_DEPTH_STAGE] = true;
             glEnable(GL_DEPTH_TEST);
 
@@ -373,12 +380,12 @@ void GtRenderer::onDraw()
             controller->drawDepth(this);
 
             m_renderProperties[RENDER_PROPERTY_DRAWING_DEPTH_STAGE] = false;
-        }
 
-        depthFbo->Release();
+            depthFbo->Release();
 
-        auto* image = new QImage(fbo->toImage());
-        controller->setCurrentImage(image, GetComputeTime());
+            auto* image = new QImage(fbo->toImage());
+            controller->setCurrentImage(image, GetComputeTime());
+        }       
     }
 
 

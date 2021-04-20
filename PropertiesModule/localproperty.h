@@ -257,7 +257,7 @@ class LocalPropertyPtr : public LocalProperty<T*>
 {
     using Super = LocalProperty<T*>;
 public:
-    LocalPropertyPtr(T* initial)
+    LocalPropertyPtr(T* initial = nullptr)
         : Super(initial)
     {}
 
@@ -348,6 +348,43 @@ public:
     typename QSet<T>::const_iterator end() const { return this->m_value.end(); }
 };
 
+class LocalPropertyBoolCommutator : public LocalProperty<bool>
+{
+    using Super = LocalProperty<bool>;
+public:
+    LocalPropertyBoolCommutator(bool defaultState = false, qint32 msecs = 0, const ThreadHandlerNoThreadCheck& threadHandler = ThreadHandlerNoCheckMainLowPriority)
+        : Super(defaultState)
+        , m_commutator(msecs, threadHandler)
+    {
+        m_commutator += { this, [defaultState, this]{
+            bool result = defaultState;
+            bool oppositeState = !result;
+            for(auto* property : m_properties) {
+                if(*property == oppositeState) {
+                    result = oppositeState;
+                    break;
+                }
+            }
+            SetValue(result);
+        }};
+    }
+
+    DispatcherConnections AddProperties(const QVector<LocalProperty<bool>*>& properties)
+    {
+        QVector<CommonDispatcher<>*> dispatchers;
+        for(auto* property : properties) {
+            dispatchers.append(&property->OnChange);
+        }
+        m_properties += properties;
+        return m_commutator.Subscribe(dispatchers);
+    }
+
+private:
+    DelayedCallDispatchersCommutator m_commutator;
+    ThreadHandlerNoThreadCheck m_threadHandler;
+    QVector<LocalProperty<bool>*> m_properties;
+};
+
 template<class T>
 class LocalPropertyVector : public LocalProperty<QVector<T>>
 {
@@ -419,76 +456,142 @@ struct PropertyFromLocalProperty
     inline static SharedPointer<Property> Create(const QString& name, T& localProperty) { return Create(Name(name), localProperty); }
 
     template<class T>
-    static SharedPointer<Property> CreateVariant(const Name& name, T& localProperty)
+    inline static SharedPointer<Property> CreatePointer(const Name& name, LocalPropertyPtr<T>& localProperty)
     {
-        auto property = ::make_shared<VariantProperty<typename T::value_type>>(name, localProperty.Native());
+        auto property = ::make_shared<PointerProperty<T>>(name, localProperty.Native());
         auto* pProperty = property.get();
-        auto setProperty = [pProperty, &localProperty]{
-            *pProperty = localProperty;
+        auto sync = ::make_shared<std::atomic_bool>(false);
+        auto setProperty = [pProperty, &localProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                *pProperty = localProperty;
+                *sync = false;
+            }
         };
         DispatcherConnectionSafePtr connection = localProperty.OnChange.Connect(nullptr, setProperty).MakeSafe();
+        pProperty->Subscribe([&localProperty, connection, pProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                localProperty = *pProperty;
+                *sync = false;
+            }
+        });
+        return property;
+    }
 
-        property->Subscribe([&localProperty, pProperty, connection]{
-            localProperty = *pProperty;
+    template<class T>
+    static SharedPointer<Property> CreateVariant(const Name& name, T& localProperty)
+    {
+        auto property = ::make_shared<VariantProperty<typename T::value_type>>(name, "");
+        auto* pProperty = property.get();
+        auto sync = ::make_shared<std::atomic_bool>(false);
+        auto setProperty = [pProperty, &localProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                *pProperty = localProperty;
+                *sync = false;
+            }
+        };
+        DispatcherConnectionSafePtr connection = localProperty.OnChange.Connect(nullptr, setProperty).MakeSafe();
+        pProperty->Subscribe([&localProperty, connection, pProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                localProperty = *pProperty;
+                *sync = false;
+            }
         });
         setProperty();
         return property;
+    }
+
+private:
+    template<class T, class T2>
+    static void connectProperty(T* pProperty, T2& localProperty)
+    {
+        auto sync = ::make_shared<std::atomic_bool>(false);
+        auto setProperty = [pProperty, &localProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                pProperty->SetValue(localProperty.Native());
+                *sync = false;
+            }
+        };
+        DispatcherConnectionSafePtr connection = localProperty.OnChange.Connect(nullptr, setProperty).MakeSafe();
+        pProperty->Subscribe([&localProperty, connection, pProperty, sync]{
+            if(!*sync) {
+                *sync = true;
+                localProperty = *pProperty;
+                *sync = false;
+            }
+        });
     }
 };
 
 template<>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertyFilePath& localProperty)
 {
-    return ::make_shared<ExternalFileNameProperty>(
-                name,
-                [&localProperty] { return localProperty.Native(); },
-                [&localProperty](const QString& value, const QString&) { localProperty = value; }
-    );
+    auto property = ::make_shared<FileNameProperty>(name, localProperty.Native());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
+}
+
+template<>
+inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertyLimitedDecimal<int>& localProperty)
+{
+    auto property = ::make_shared<IntProperty>(name, localProperty.Native(), localProperty.GetMin(), localProperty.GetMax());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
+}
+
+template<>
+inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertyString& localProperty)
+{
+    auto property = ::make_shared<StringProperty>(name, localProperty.Native());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
 }
 
 template<>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalProperty<bool>& localProperty)
 {
-    return ::make_shared<ExternalBoolProperty>(
-                name,
-                [&localProperty] { return localProperty.Native(); },
-                [&localProperty](double value, double) { localProperty = value; }
-    );
+    auto property = ::make_shared<BoolProperty>(name, localProperty.Native());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
 }
 
 template<>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertyLimitedDecimal<double>& localProperty)
 {
-    return ::make_shared<ExternalDoubleProperty>(
-                name,
-                [&localProperty] { return localProperty.Native(); },
-                [&localProperty](double value, double) { localProperty = value; },
-                localProperty.GetMin(),
-                localProperty.GetMax()
-    );
+    auto property = ::make_shared<DoubleProperty>(name, localProperty.Native(), localProperty.GetMin(), localProperty.GetMax());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
 }
 
 template<>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertyLimitedDecimal<float>& localProperty)
 {
-    return ::make_shared<ExternalFloatProperty>(
-                name,
-                [&localProperty] { return localProperty.Native(); },
-                [&localProperty](double value, double) { localProperty = value; },
-                localProperty.GetMin(),
-                localProperty.GetMax()
-    );
+    auto property = ::make_shared<FloatProperty>(name, localProperty.Native(), localProperty.GetMin(), localProperty.GetMax());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
 }
+
+#ifdef QT_GUI_LIB
 
 template<>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalProperty<QColor>& localProperty)
 {
-    return ::make_shared<ExternalColorProperty>(
-                name,
-                [&localProperty] { return localProperty.Native(); },
-                [&localProperty](const QColor& value, const QColor&) { localProperty = value; }
-    );
+    auto property = ::make_shared<ColorProperty>(name, localProperty.Native());
+    auto* pProperty = property.get();
+    connectProperty(pProperty, localProperty);
+    return property;
 }
+#endif
 
 template<typename Enum>
 inline SharedPointer<Property> PropertyFromLocalProperty::Create(const Name& name, LocalPropertySequentialEnum<Enum>& localProperty)

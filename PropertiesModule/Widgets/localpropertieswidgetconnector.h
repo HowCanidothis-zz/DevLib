@@ -52,11 +52,48 @@ protected:
     bool m_ignoreWidgetChange;
 };
 
+class _Export LocalPropertiesMenuLabelConnector : public LocalPropertiesWidgetConnectorBase
+{
+    using Super = LocalPropertiesWidgetConnectorBase;
+public:
+    LocalPropertiesMenuLabelConnector(LocalPropertyString* property, QMenu* menu);
+};
+
+class LocalPropertiesMenuActionsConnector : public LocalPropertiesWidgetConnectorBase
+{
+    using Super = LocalPropertiesWidgetConnectorBase;
+public:
+    template<class T>
+    LocalPropertiesMenuActionsConnector(LocalPropertySequentialEnum<T>* property, QMenu* menu, const std::function<void (QAction* action, qint32 index)>& actionsRules = [](QAction*,qint32){})
+        : Super([]{
+        }, []{})
+    {
+        qint32 value = (qint32)T::First;
+        for(const auto& name : property->GetNames()) {
+            auto* action = createAction(name, [property, value]{
+                *property = (T)value;
+            }, menu);
+            actionsRules(action, value);
+            value++;
+        }
+    }
+};
+
 class _Export LocalPropertiesLabelConnector : public LocalPropertiesWidgetConnectorBase
 {
     using Super = LocalPropertiesWidgetConnectorBase;
 public:
     LocalPropertiesLabelConnector(LocalPropertyString* property, class QLabel* label);
+    template<class T>
+    LocalPropertiesLabelConnector(LocalPropertySequentialEnum<T>* property, QLabel* label)
+        : Super([label, property]{
+            label->setText(EnumHelper<T>::GetNames()[(qint32)property->Native()]);
+        }, []{})
+    {
+        property->GetDispatcher().Connect(this, [this]{
+            m_widgetSetter();
+        }).MakeSafe(m_dispatcherConnections);
+    }
 };
 
 class _Export LocalPropertiesCheckBoxConnector : public LocalPropertiesWidgetConnectorBase
@@ -93,8 +130,8 @@ class _Export LocalPropertiesDoubleSpinBoxConnector : public LocalPropertiesWidg
 {
     using Super = LocalPropertiesWidgetConnectorBase;
 public:
-    LocalPropertiesDoubleSpinBoxConnector(LocalPropertyDouble* property, class QDoubleSpinBox* spinBox);
-    LocalPropertiesDoubleSpinBoxConnector(LocalPropertyFloat* property, QDoubleSpinBox* spinBox);
+    LocalPropertiesDoubleSpinBoxConnector(LocalPropertyDouble* property, class QDoubleSpinBox* spinBox, double presicion = 0.009);
+    LocalPropertiesDoubleSpinBoxConnector(LocalPropertyFloat* property, QDoubleSpinBox* spinBox, float presicion = 0.009f);
 };
 
 class _Export LocalPropertiesRadioButtonsConnector : public LocalPropertiesWidgetConnectorBase

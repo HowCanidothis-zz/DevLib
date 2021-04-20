@@ -87,6 +87,7 @@ public:
     Dispatcher OnAboutToBeDestroyed;
 
 private:
+    void addDelayedDraw(const FAction& drawAction);
     void enableDepthTest();
     void disableDepthTest();
     void construct();
@@ -95,7 +96,7 @@ private:
 
     // GtRenderThread interface
 protected:
-    void onInitialize() override;
+    bool onInitialize() override;
     void onDraw() override;
     void onDestroy() override;
 
@@ -128,6 +129,7 @@ private:
     ResourcesSystem m_resourceSystem;
     QVector<GtRendererPtr> m_childRenderers;
     GtRenderProperties m_renderProperties;
+    QVector<FAction> m_delayedDraws;
 };
 
 #endif // GTRENDERER_H
