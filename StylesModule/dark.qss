@@ -7,4 +7,5 @@
 @import url("dark/leftbar.qss");
 @import url("dark/visualization.qss");
 @import url("dark/ads.qss");
+@import url("dark/metro.qss");
 @import url("common/topnotifierframe.qss");

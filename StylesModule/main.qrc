@@ -15,5 +15,6 @@
         <file>light/ads.qss</file>
         <file>light/leftbar.qss</file>
         <file>light/style.qss</file>
+        <file>dark/metro.qss</file>
     </qresource>
 </RCC>

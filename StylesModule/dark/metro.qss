@@ -1,0 +1,73 @@
+QPushButton#MessageButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    color: blue;
+    background: transparent;
+    image: url(":/Icons/message.svg");
+}
+
+QPushButton#MessageButton:hover {
+    image: url(":/Icons/message_hover.svg");
+}
+
+QPushButton#RoutButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/train-button.svg");
+}
+
+QPushButton#RoutButton:hover {
+    image: url(":/Icons/train-button_hover.svg");
+}
+
+QPushButton#SettingsButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/settings.svg");
+}
+
+QPushButton#SettingsButton:hover {
+    image: url(":/Icons/settings_hover.svg");
+}
+
+QPushButton#SoundButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/sound-button.svg");
+}
+
+QPushButton#SoundButton:hover {
+    image: url(":/Icons/sound-button_hover.svg");
+}
+
+QPushButton#ResetRoutButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/reset.svg");
+}
+
+QPushButton#ResetRoutButton:hover {
+    image: url(":/Icons/reset_hover.svg");
+}
+
+QPushButton#MicrofonButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/mic_on.svg");
+}
+
+QPushButton#MicrofonButton:hover {
+    image: url(":/Icons/mic_on_hover.svg");
+}
+
