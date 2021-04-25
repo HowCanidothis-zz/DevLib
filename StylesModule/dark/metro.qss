@@ -71,3 +71,6 @@ QPushButton#MicrofonButton:hover {
     image: url(":/Icons/mic_on_hover.svg");
 }
 
+TCSInfoComplexStateWidget QWidget {
+    background: #3C3C3C;
+}
