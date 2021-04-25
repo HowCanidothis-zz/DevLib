@@ -71,6 +71,18 @@ QPushButton#MicrofonButton:hover {
     image: url(":/Icons/mic_on_hover.svg");
 }
 
+QPushButton#StationButton {
+    qproperty-text: "";
+    min-width: 28;
+    min-height: 28;
+    background: transparent;
+    image: url(":/Icons/train_station.svg");
+}
+
+QPushButton#StationButton:hover {
+    image: url(":/Icons/train_station_hover.svg");
+}
+
 TCSInfoComplexStateWidget QWidget {
     background: #3C3C3C;
 }
