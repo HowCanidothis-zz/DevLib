@@ -11,29 +11,21 @@ public:
     {
         Column_Type,
         Column_Time,
+        Column_Show,
         Column_Body,
     };
 
-    NotifyData(qint32 type, const QString& body)
+    NotifyData(qint32 type, const QString& body, const SharedPointer<LocalPropertyBool>& visible = nullptr)
         : Body(body)
         , Type(type)
         , Time(QTime::currentTime())
+        , Visible(visible)
     {}
 
     QString Body;
     qint32 Type;
     QTime Time;
-
-    QVariant GetData(Columns column) const
-    {
-        switch (column) {
-        case Column_Type: return Type;
-        case Column_Body: return Body;
-        case Column_Time: return Time;
-        default: break;
-        }
-        return QVariant();
-    }
+    SharedPointer<LocalPropertyBool> Visible;
 };
 
 struct NotifyErrorContainerData
