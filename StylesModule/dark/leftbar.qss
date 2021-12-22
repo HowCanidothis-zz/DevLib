@@ -1,0 +1,153 @@
+MenuBar {
+    background: #3C3C3C;
+}
+
+MenuBar MenuBarMovePane {
+    border: none;
+    background: #3C3C3C;
+}
+
+MenuBarMovePane QLabel#Title {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMinimize {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMaximize {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnClose {
+    background: #3C3C3C;
+}
+
+QPushButton#BtnMinimize:hover {
+    background: #505050;
+}
+
+QPushButton#BtnMaximize:hover {
+    background: #505050;
+}
+
+QPushButton#BtnClose:hover {
+    background: #D61425;
+    image: url(":/menu_bar/close-hover.svg");
+}
+
+LeftBar QFrame {
+    background: white;
+    min-width: 1;
+}
+
+LeftBar {
+    background: #333333;
+}
+
+MenuBar {
+    background: #3C3C3C;
+}
+
+MenuBar QWidget#Menus{
+    background: #3C3C3C;
+}
+
+QWidget[errorSelection="true"]{
+    background: #933C2B;
+}
+
+TreeBar QLabel#Title {
+    color: #9d9d9d;
+    font-size: 12px;
+}
+
+MenuBar QLabel#LogoIcon {
+    background: #3C3C3C;
+}
+
+MenuBarMovePane QLabel#Icon {
+    background: #3C3C3C;
+}
+
+WidgetsEditingObjectSaveCancelButtons {
+    background: #252526;
+    padding: 10px 20px 10px 20px;
+}
+
+QFrame[Footer="true"]
+{
+    background: #252526;
+}
+
+QFrame[Footer="true"] QLabel
+{
+    background: #252526;
+}
+
+QFrame[Footer="true"] QCheckBox
+{
+    background: #252526;
+}
+
+QFrame[Footer="true"] QLabel
+{
+    background: #252526;
+}
+
+QFrame[Footer="true"] QDoubleSpinBox
+{
+    background: #252526;
+}
+
+QFrame[Footer="true"] QSpinBox
+{
+    background: #252526;
+}
+
+DDFooter QLabel{
+    font-size: 12px;
+}
+
+QFrame[ApplicationMode="1"]{
+    background: #7B1FA2;
+}
+
+QFrame[ApplicationMode="2"][DDReferenceMode="0"]{
+    background: #1976D2;
+}
+
+QFrame[ApplicationMode="2"][DDReferenceMode="1"]{
+    background: #D32F2F;
+}
+
+QFrame[ApplicationMode="1"] QWidget{
+    background: #7B1FA2;
+}
+
+QFrame[ApplicationMode="2"][DDReferenceMode="0"] QWidget{
+    background: #1976D2;
+}
+
+QFrame[ApplicationMode="2"][DDReferenceMode="1"] QWidget{
+    background: #D32F2F;
+}
+
+QFrame#MainFooter QLabel#FooterProgressBarLabel{
+    font-size: 8px;
+    qproperty-alignment: 'AlignVCenter | AlignLeft';
+}
+
+QTreeView#OffsetsTreeView {
+    background: #1e1e1e;
+}
+
+TreeBar QFrame#Header {
+    background: #252526;
+    border-bottom: 1px solid #3C3C3C;
+}
+
+TreeBar QLabel {    
+    background: #252526;
+    color: #9d9d9d;
+}

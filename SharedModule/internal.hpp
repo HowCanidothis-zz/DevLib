@@ -25,6 +25,7 @@
 #include "Serialization/libserializer.h"
 #include "Serialization/string/textconverter.h"
 #include "Serialization/string/qtextconverters.h"
+#include "Serialization/string/xmlserializer.h"
 #include "array.h"
 #include "stack.h"
 #include "FileSystem/filesguard.h"
@@ -37,6 +38,10 @@
 #include "Threads/Promises/promise.h"
 #include "Threads/threadsbase.h"
 #include "Threads/ThreadFunction/threadpool.h"
+#include "Threads/threadtimer.h"
+#include "Threads/threadcalculator.h"
+#include "delayedcall.h"
+#include "FullTextSearch/ftsdictionary.h"
 #include "flags.h"
 #include "profile_utils.h"
 #include "timer.h"
@@ -45,8 +50,11 @@
 #include "name.h"
 #include "Logger/logger.h"
 #include "dispatcher.h"
+#include "events.h"
 #include "Trees/cubetree.h"
 #include "Trees/quadtreef.h"
+#include "interruptor.h"
+#include "externalservice.h"
 
 #endif
 

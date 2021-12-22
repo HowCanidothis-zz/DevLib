@@ -4,38 +4,59 @@
 #include <QHash>
 #include <QString>
 #include <QMutex>
+#include <QSet>
 #include <typeinfo>
+#include <functional>
 
 template<class T> class MemorySpy;
 
-class MemoryManager {
-private:
-    static QMutex& mutex()
+class MemoryManager
+{
+    struct ObjectInfo
     {
-        static QMutex mutex;
-        return mutex;
+        void* Target;
+        size_t Id;
+
+        operator size_t() const { return (size_t)Target; }
     };
-    static QHash<size_t,const char*>& dictionary()
-    {
-        static QHash<size_t,const char*> ret;
-        return ret;
-    }
-    static QHash<size_t,qint32>& created()
-    {
-        static QHash<size_t,qint32> ret;
-        return ret;
-    }
-    static QHash<size_t,qint32>& destroyed()
-    {
-        static QHash<size_t,qint32> ret;
-        return ret;
-    }
 
-    static qint32 shouldBe(size_t index);
-    static const char* typeName(size_t _type);
+    QMutex m_mutex;
+    size_t m_idGenerator = 0;
+    QHash<size_t, QSet<ObjectInfo>> m_spies;
+    QHash<size_t, const char*> m_dictionary;
+    QHash<size_t, qint32> m_created;
+    QHash<size_t, qint32> m_destroyed;
+    QSet<size_t> m_tracedIds;
+    qint32 shouldBe(size_t index);
+    const char* typeName(size_t _type);
+    void registerSpy(size_t key, void* spy, const char* name);
+    void unregiterSpy(size_t key, void* spy);
 public:
+    static MemoryManager& GetInstance(){ static MemoryManager* manager = new MemoryManager(); return *manager; }
+    void MakeMemoryReport();
 
-    static void MakeMemoryReport();
+    void TraceCreation(size_t id)
+    {
+        QMutexLocker locker(&m_mutex);
+        m_tracedIds.insert(id);
+    }
+
+    template<class T>
+    void TestObjects(const std::function<void (T*)>& handler)
+    {
+        QMutexLocker locker(&m_mutex);
+        auto foundIt = m_spies.find(typeid(T).hash_code());
+        if(foundIt != m_spies.end()) {
+            for(const auto& spy : foundIt.value()) {
+                auto* concreteSpy = reinterpret_cast<T*>(spy.Target);
+                auto tSpy = dynamic_cast<T*>(concreteSpy);
+                if(tSpy != nullptr) {
+                    handler(tSpy);
+                }
+            }
+        }
+
+    }
 
     template<class T> friend class MemorySpy;
 };
@@ -45,12 +66,7 @@ class MemorySpy
 {
 public:
     MemorySpy(){
-        MemoryManager::mutex().lock();
-        size_t id = typeid(T).hash_code();
-        if(!MemoryManager::dictionary().contains(id))
-            MemoryManager::dictionary()[id] = typeid(T).name();
-        MemoryManager::created()[id]++;
-        MemoryManager::mutex().unlock();
+        MemoryManager::GetInstance().registerSpy(typeid(T).hash_code(), this, typeid(T).name());
     }
 
     MemorySpy(const MemorySpy&)
@@ -59,9 +75,7 @@ public:
     }
 
     virtual ~MemorySpy(){
-        MemoryManager::mutex().lock();
-        MemoryManager::destroyed()[typeid(T).hash_code()]++;
-        MemoryManager::mutex().unlock();
+        MemoryManager::GetInstance().unregiterSpy(typeid(T).hash_code(), this);
     }
 };
 

@@ -9,20 +9,20 @@ class GtDrawableBase;
 
 class GtScene
 {
-    QSet<GtDrawableBase*> m_drawables;
+    QMap<qint32, QSet<GtDrawableBase*>> m_drawables;
 
 public:
     using FInitializationFunction = std::function<void (OpenGLFunctions*)>;
     GtScene();
     ~GtScene();
 
-    void AddDrawable(GtDrawableBase* drawable);
+    void AddDrawable(GtDrawableBase* drawable, qint32 queueNumber);
     void RemoveDrawable(GtDrawableBase* drawable);
 
-private:
-    friend class GtView;
-    friend class GtRenderer;
-    void draw(OpenGLFunctions* f);
+    void DrawFilter(OpenGLFunctions* f, const std::function<bool (qint32)>& filter);
+    void DrawAll(OpenGLFunctions* f);
+    void Draw(qint32 queue, OpenGLFunctions* f);
+    void DrawDepth(OpenGLFunctions* f);
 
 private:
     FInitializationFunction m_initFunction;

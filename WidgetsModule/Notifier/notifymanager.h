@@ -4,6 +4,10 @@
 #include <QObject>
 #include <QQueue>
 
+#include <PropertiesModule/internal.hpp>
+
+#include "notifydeclarations.h"
+
 class NotifyData;
 
 class NotifyManager : public QObject
@@ -13,38 +17,42 @@ class NotifyManager : public QObject
 public:
     enum MessageType
     {
-        Info,
-        Warning,
-        Error
+        Info = 0x1,
+        Warning = 0x2,
+        Error = 0x4
     };
 
 public:
     explicit NotifyManager( QObject* parent = 0);
     ~NotifyManager();
 
-    static void Notify(MessageType messageType, const QString& body);
-    static void Notify(QtMsgType qtMessageType, const QString& body);
-    static NotifyManager& Instance();
+    void Notify(MessageType messageType, const QString& body);
+    void Notify(QtMsgType qtMessageType, const QString& body);
+    static NotifyManager& GetInstance();
 
-    void SetMargins(qint32 bottom, qint32 right, qint32 space);
-    void SetWidth(qint32 width);
-    void SetDisplayTime(int ms);
+    LocalPropertyInt BottomMargin;
+    LocalPropertyInt RightMargin;
+    LocalPropertyInt Spacing;
+    LocalPropertyInt DisplayTime;
+    LocalPropertyInt Width;
+    LocalPropertyInt Height;
+    LocalPropertyInt ReservedHeight;
+    LocalPropertyBool IsNotifactionsEnabled;
+
+    CommonDispatcher<const QString&, bool&> OnLinkActivated;
+    CommonDispatcher<const NotifyDataPtr&> OnDataRecieved;
 
 private Q_SLOTS:
     void rearrange();
     void showNext();
 
 private:
-    QQueue<NotifyData*> m_dataQueue;
+    QQueue<NotifyDataPtr> m_dataQueue;
     QList<class NotifyWidget*> m_notifyList;
-    qint32 m_bottom;
-    qint32 m_right;
-    qint32 m_space;
-    qint32 m_width;
-    qint32 m_displayTime;
-    qint32 m_reservedHeight;
     qint32 m_freeHeight;
-    qint32 m_maxHeight;
+    DelayedCallDispatchersCommutator m_onLayoutChanged;
+    NotifyDataPtr m_exceedData;
+    qint32 m_exceedCounter;
 };
 
 #endif // NOTIFYMANAGER_H

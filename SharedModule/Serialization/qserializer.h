@@ -27,6 +27,22 @@ public:
     using Super::Super;
 
     void read(char* bytes, size_t len) { readRawData(bytes, (qint32)len); }
+    int64_t GetLastInt64()
+    {
+        int64_t result = -1;
+        if(Super::device() == nullptr) {
+            return result;
+        }
+        auto totalSize = Super::device()->bytesAvailable();
+        if(totalSize < sizeof(int64_t)) {
+            return result;
+        }
+        auto currentPos = Super::device()->pos();
+        Super::device()->seek(currentPos + totalSize - sizeof(int64_t));
+        readRawData((char*)&result, sizeof(int64_t));
+        Super::device()->seek(currentPos);
+        return result;
+    }
 };
 
 template<>
@@ -50,6 +66,95 @@ struct Serializer<QString>
     }
 };
 
+template<>
+struct Serializer<QDate>
+{
+    using TypeName = QDate;
+
+    template<class Buffer>
+    static void Write(Buffer& buffer, const TypeName& data)
+    {
+        auto julianDate = data.toJulianDay();
+        buffer << julianDate;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, TypeName& data)
+    {
+        qint64 julianDate;
+        buffer << julianDate;
+        data = QDate::fromJulianDay(julianDate);
+    }
+};
+
+template<>
+struct Serializer<QSize>
+{
+    typedef QSize target_type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const target_type& data)
+    {
+        auto w = data.width();
+        auto h = data.height();
+        buffer << w;
+        buffer << h;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, target_type& data)
+    {
+        buffer << data.rwidth();
+        buffer << data.rheight();
+    }
+};
+
+template<>
+struct Serializer<QImage>
+{
+    typedef QImage target_type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const target_type& data)
+    {
+        buffer.GetStream() << data;
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, target_type& data)
+    {
+        buffer.GetStream() >> data;
+    }
+};
+
+template<class T, class T2>
+struct Serializer<QMap<T, T2>>
+{
+    typedef QMap<T, T2> target_type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const target_type& data)
+    {
+        qint32 count = data.size();
+        buffer << buffer.Attr("Size", count);
+        for(auto it(data.begin()), e(data.end()); it != e; it++) {
+            buffer << buffer.Sect("key", const_cast<T&>(it.key()));
+            buffer << buffer.Sect("value", const_cast<T2&>(it.value()));
+        }
+    }
+
+    template<class Buffer>
+    static void Read(Buffer& buffer, target_type& data)
+    {
+        qint32 count = data.size();
+        buffer << buffer.Attr("Size", count);
+        data.clear();
+        while(count--) {
+            T key; T2 value;
+            buffer << buffer.Sect("key", key);
+            buffer << buffer.Sect("value", value);
+            data.insert(key, value);
+        }
+    }
+};
+
 template<class T>
 struct Serializer<QSet<T>>
 {
@@ -57,24 +162,33 @@ struct Serializer<QSet<T>>
     template<class Buffer>
     static void Write(Buffer& buffer, const target_type& data)
     {
-        qint32 size = data.size();
-        buffer << size;
-        for(const T& value : data) {
-            buffer << value;
+        qint32 count = data.size();
+        buffer << buffer.Attr("Size", count);
+        if(buffer.GetSerializationMode().TestFlag(SerializationMode_Sorted_Containers)) {
+            auto list = data.toList();
+            std::sort(list.begin(), list.end());
+            for(const auto& element : list) {
+                buffer << buffer.Sect("element", const_cast<T&>(element));
+            }
+        } else {
+            for(const auto& element : data) {
+                buffer << buffer.Sect("element", const_cast<T&>(element));
+            }
         }
     }
 
     template<class Buffer>
     static void Read(Buffer& buffer, target_type& data)
     {
-        qint32 size;
-        buffer << size;
-        if(size) {
-            data.reserve(size);
-            while(size--) {
-                T value;
-                buffer << value;
-                data.insert(value);
+        qint32 count = data.size();
+        buffer << buffer.Attr("Size", count);
+        data.clear();
+        if(count) {
+            data.reserve(count);
+            while(count--) {
+                T element;
+                buffer << buffer.Sect("element", element);
+                data.insert(element);
             }
         }
     }
@@ -87,15 +201,52 @@ struct Serializer<QDateTime>
     template<class Buffer>
     static void Write(Buffer& buffer, const Type& type)
     {
-        qint64 julianDay = type.toMSecsSinceEpoch();
-        buffer << julianDay;
+        static qint64 invalidValue = -1;
+        if(!type.isValid()) {
+            buffer << invalidValue;
+        } else {
+            qint64 julianDay = type.toMSecsSinceEpoch();
+            buffer << julianDay;
+        }
     }
     template<class Buffer>
     static void Read(Buffer& buffer, Type& type)
     {
         qint64 julianDay;
         buffer << julianDay;
-        type = QDateTime::fromMSecsSinceEpoch(julianDay);
+        if(julianDay == -1) {
+            type = QDateTime();
+        } else {
+            type = QDateTime::fromMSecsSinceEpoch(julianDay);
+        }
+    }
+};
+
+template<>
+struct Serializer<QTime>
+{
+    typedef QTime Type;
+    template<class Buffer>
+    static void Write(Buffer& buffer, const Type& type)
+    {
+        static qint32 invalidValue = -1;
+        if(!type.isValid()) {
+            buffer << invalidValue;
+        } else {
+            qint32 msecs = type.msecsSinceStartOfDay();
+            buffer << msecs;
+        }
+    }
+    template<class Buffer>
+    static void Read(Buffer& buffer, Type& type)
+    {
+        qint32 msecs;
+        buffer << msecs;
+        if(msecs == -1) {
+            type = QTime();
+        } else {
+            type = QTime::fromMSecsSinceStartOfDay(msecs);
+        }
     }
 };
 
@@ -187,23 +338,25 @@ struct Serializer<QFlags<Enum>>
     }
 };
 
-template<>
-struct SerializerDirectionHelper<QDataStreamWriter>
-{
-    typedef StreamBufferBase<QDataStreamWriter> Buffer;
-    template<typename T>
-    static void Serialize(Buffer& buffer, const T& data) { Serializer<T>::Write(buffer, data); }
-};
+typedef StreamBufferWriter<QDataStreamWriter> QStreamBufferWrite;
+typedef StreamBufferReader<QDataStreamReader> QStreamBufferRead;
 
-template<>
-struct SerializerDirectionHelper<QDataStreamReader>
+template<class T>
+inline QByteArray SerializeToArray(const T& object, SerializationModes serializationMode = SerializationMode_Default)
 {
-    typedef StreamBufferBase<QDataStreamReader> Buffer;
-    template<typename T>
-    static void Serialize(Buffer& buffer, T& data) { Serializer<T>::Read(buffer, data); }
-};
+    QByteArray array;
+    QStreamBufferWrite writer(&array, QIODevice::WriteOnly);
+    writer.SetSerializationMode(serializationMode);
+    writer << object;
+    return array;
+}
 
-typedef StreamBufferBase<QDataStreamWriter> QStreamBufferWrite;
-typedef StreamBufferBase<QDataStreamReader> QStreamBufferRead;
+template<class T>
+void DeSerializeFromArray(const QByteArray& array, T& object, SerializationModes serializationMode = SerializationMode_Default)
+{
+    QStreamBufferRead reader(array);
+    reader.SetSerializationMode(serializationMode);
+    reader << object;
+}
 
 #endif

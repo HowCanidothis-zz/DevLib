@@ -5,13 +5,12 @@
 Q_LOGGING_CATEGORY(LC_UI, "ui")
 Q_LOGGING_CATEGORY(LC_SYSTEM, "system")
 
-DirBinder::DirBinder(const QString& dir)
+double Nanosecs::TimesPerSecond() const
 {
-    old_path = QDir::currentPath();
-    QDir::setCurrent(dir);
+    return 1000000000.0 / _nsecs;
 }
 
-DirBinder::~DirBinder()
+QString Nanosecs::ToString(const QString& caption) const
 {
-    QDir::setCurrent(old_path);
+    return Timer::TimeToStringSecs(caption, _nsecs);
 }

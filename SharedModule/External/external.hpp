@@ -7,10 +7,9 @@
 #include "qtobserver.h"
 #include "qtlambdaconnections.h"
 #include "qtqssreader.h"
+#include "ticksplitter.h"
 #include "utils.h"
 
-typedef QtObserver Observer;
-typedef QtInlineEvent InlineEvent;
 #endif
 
 #endif // EXTERNAL_HPP

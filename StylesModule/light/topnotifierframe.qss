@@ -1,0 +1,8 @@
+TopNotifierFrame QLabel{
+    background: #1464A0;
+    color: white;
+}
+
+TopNotifierFrame {
+    background: #1464A0;
+}

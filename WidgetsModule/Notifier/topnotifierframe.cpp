@@ -1,41 +1,18 @@
 #include "topnotifierframe.h"
 #include "ui_topnotifierframe.h"
 
-#include <QGraphicsOpacityEffect>
-#include <QPropertyAnimation>
 #include <QResizeEvent>
 
-void WidgetAppearance::ShowAnimated(QWidget* widget)
-{
-    QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(widget);
-    widget->setGraphicsEffect(effect);
-    QPropertyAnimation *animation = new QPropertyAnimation(effect,"opacity");
-    animation->setDuration(2000);
-    animation->setStartValue(0.0);
-    animation->setEndValue(0.8);
-    animation->setEasingCurve(QEasingCurve::InBack);
-    animation->start(QPropertyAnimation::DeleteWhenStopped);
-    widget->show();
-}
-
-void WidgetAppearance::HideAnimated(QWidget* widget)
-{
-    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(widget);
-    widget->setGraphicsEffect(effect);
-    QPropertyAnimation *animation = new QPropertyAnimation(effect,"opacity");
-    animation->setDuration(2000);
-    animation->setStartValue(0.8);
-    animation->setEndValue(0);
-    animation->setEasingCurve(QEasingCurve::OutBack);
-    animation->start(QPropertyAnimation::DeleteWhenStopped);
-    widget->hide();
-}
+#include "WidgetsModule/Utils/widgethelpers.h"
 
 TopNotifierFrame::TopNotifierFrame(QWidget* parent)
     : Super(parent)
     , ui(new Ui::TopNotifierFrame)
 {
     ui->setupUi(this);
+    ui->BtnAction->setVisible(false);
+
+    move((parent->size().width() - width()) / 2, 0);
 
     parent->installEventFilter(this);
     hide();
@@ -49,11 +26,13 @@ TopNotifierFrame::~TopNotifierFrame()
 void TopNotifierFrame::SetText(const QString& text)
 {
     ui->Label->setText(text);
+    adjustSize();
 }
 
 void TopNotifierFrame::SetActionText(const QString& text)
 {
     ui->BtnAction->setText(text);
+    ui->BtnAction->setVisible(!text.isEmpty());
 }
 
 void TopNotifierFrame::SetAction(const FAction& action)
@@ -61,8 +40,7 @@ void TopNotifierFrame::SetAction(const FAction& action)
     connect(ui->BtnAction, &QPushButton::clicked, action);
 }
 
-
-bool TopNotifierFrame::eventFilter(QObject* watched, QEvent* event)
+bool TopNotifierFrame::eventFilter(QObject*, QEvent* event)
 {
     switch (event->type()) {
     case QEvent::Resize: {
@@ -74,4 +52,23 @@ bool TopNotifierFrame::eventFilter(QObject* watched, QEvent* event)
     }
 
     return false;
+}
+
+TopNotifierFrameErrorsComponent::TopNotifierFrameErrorsComponent(LocalPropertyErrorsContainer* errors, TopNotifierFrame* frame)
+{
+    auto setText = [frame, errors]{
+        ThreadsBase::DoMain([frame, errors]{
+            WidgetAppearance::SetVisibleAnimated(frame, !errors->IsEmpty());
+            QString message;
+            for(const auto& error : *errors) {
+                message += error.Error->Native() + "\n";
+            }
+            if(!message.isEmpty()) {
+                message.resize(message.size() - 1);
+            }
+            frame->SetText(message);
+        });
+    };
+    errors->OnChange.Connect(this, setText).MakeSafe(m_connections);
+    errors->OnErrorsLabelsChanged.Connect(this, setText).MakeSafe(m_connections);
 }

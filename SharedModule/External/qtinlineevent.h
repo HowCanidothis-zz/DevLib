@@ -30,18 +30,13 @@ class _Export QtInlineEventWithResult : public QtInlineEvent
     using Super = QtInlineEvent;
 public:
     QtInlineEventWithResult(const FAction& function, const AsyncResult& result)
-        : Super([this, function]{
-            function();
-            m_asyncResult.Resolve(true);
+        : Super([function, result]{
+            result.Resolve([function]{ function(); return true; });
         })
-        , m_asyncResult(result)
     {}
 
     static AsyncResult Post(const FAction& function, Qt::EventPriority priority = Qt::NormalEventPriority);
     static AsyncResult Post(const FAction& function, QObject* object, Qt::EventPriority priority = Qt::NormalEventPriority);
-
-private:
-    AsyncResult m_asyncResult;
 };
 
 #endif // QTCUSTOMEVENTS_H

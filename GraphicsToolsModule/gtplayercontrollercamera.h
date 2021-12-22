@@ -22,15 +22,11 @@ public:
     bool keyReleaseEvent(QKeyEvent* event) override;
     bool inputHandle(const QSet<qint32>* inputKeys, qint32 modifiers) override;
 
-private:
+protected:
     Point2I resolutional(const Point2I& p) const;
 
 protected:
-    Point2I m_lastScreenPosition;
     Vector3F m_lastWorldPosition;
-    Vector3F m_lastWorldMovePosition;
-    float m_lastDepth;
-    bool m_pressed = false;
 };
 
 #endif // GTPLAYERCONTROLLERCAMERA_H

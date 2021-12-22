@@ -22,7 +22,7 @@ QtQSSReader::~QtQSSReader()
 void QtQSSReader::SetEnableObserver(bool enable)
 {
     if(enable) {
-        _observer = new QtObserver(500);
+        _observer = new QtObserver(500, ThreadHandlerNoCheckMainLowPriority);
     } else {
         _observer = nullptr;
     }
@@ -40,7 +40,9 @@ QString QtQSSReader::ReadAll()
     if(_observer) {
         _observer->Clear();
         _observer->AddFileObserver(_fileName, [this]{
-            Install(_fileName);
+            ThreadsBase::DoMain([this]{
+                Install(_fileName);
+            });
         });
     }
 

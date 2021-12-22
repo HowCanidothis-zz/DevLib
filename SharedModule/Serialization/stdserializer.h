@@ -18,7 +18,7 @@ struct Serializer
     template<class Buffer>
     static void Write(Buffer& buffer, const T& data)
     {
-        const_cast<T*>(&data)->Serialize(buffer);
+        const_cast<T&>(data).Serialize(buffer);
     }
     template<class Buffer>
     static void Read(Buffer& buffer, T& data)
@@ -26,6 +26,8 @@ struct Serializer
         data.Serialize(buffer);
     }
 };
+
+#define DECLARE_FRIEND_SERIALIZER template<class T> friend struct Serializer;
 
 struct PlainData
 {
@@ -286,6 +288,22 @@ struct Serializer<Flags<int32_t, Enum>>
     {
         buffer << reinterpret_cast<qint32&>(type);
     }
+};
+
+#define DECLARE_SERIALIZER_TYPE_ALIAS(SourceType, Type) \
+template<> \
+struct Serializer<Type> \
+{ \
+    template<class Buffer> \
+    static void Write(Buffer& buffer, const Type& type) \
+    { \
+        buffer << reinterpret_cast<const SourceType&>(type); \
+    } \
+    template<class Buffer> \
+    static void Read(Buffer& buffer, Type& type) \
+    { \
+        buffer << reinterpret_cast<SourceType&>(type); \
+    } \
 };
 
 

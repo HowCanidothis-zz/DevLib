@@ -12,9 +12,11 @@
 #include <QComboBox>
 
 PropertiesConnectorBase::PropertiesConnectorBase(const Name& name, const PropertiesConnectorBase::Setter& setter, QWidget* target)
-    : m_setter(setter)
+    : m_setter([target, setter](const QVariant& value){
+        QSignalBlocker signalBlocker(target);
+        setter(value);
+    })
     , m_ignorePropertyChange(false)
-    , m_dispatcherConnections(this)
     , m_target(target)
     , m_propertyName(name)
 {
@@ -27,26 +29,23 @@ PropertiesConnectorBase::~PropertiesConnectorBase()
 
 void PropertiesConnectorBase::SetScope(const PropertiesScopeName& scope)
 {
-    m_dispatcherConnections.Clear();
+    m_dispatcherConnections.clear();
     m_propertyPtr.Assign(m_propertyName, scope);
-    m_dispatcherConnections.Add(m_propertyPtr.GetDispatcher(), [this]{
+    m_propertyPtr.GetDispatcher().Connect(this, [this]{
         Q_ASSERT(m_propertyPtr.IsValid());
         Q_ASSERT(m_propertyPtr.GetProperty()->GetOptions().TestFlag(Property::Option_IsPresentable));
         if(!m_ignorePropertyChange) {
-            QSignalBlocker blocker(m_target); // TODO. why so?
             m_setter(m_propertyPtr.GetProperty()->GetValue());
         }
-    });
+    }).MakeSafe(m_dispatcherConnections);
 
     if(m_propertyPtr.IsValid()) {
-        QSignalBlocker blocker(m_target); // TODO. why so?
         m_setter(m_propertyPtr.GetProperty()->GetValue());
     }
 }
 
 void PropertiesConnectorBase::Update()
 {
-    QSignalBlocker blocker(parent()); // TODO. why so?
     m_setter(m_propertyPtr.GetProperty()->GetValue());
 }
 
@@ -123,7 +122,7 @@ PropertiesDoubleSpinBoxConnector::PropertiesDoubleSpinBoxConnector(const Name& p
                               },
                               spinBox)
 {
-    m_connection = connect(spinBox, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this, spinBox](double value){
+    m_connection = connect(spinBox, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this](double value){
         PropertyChangeGuard guard(this);
         auto* property = m_propertyPtr.GetProperty();
         property->SetValue(value);
@@ -171,7 +170,7 @@ PropertiesConnectorBase::PropertyChangeGuard::~PropertyChangeGuard()
 
 PropertiesRadioButtonsGroupBoxConnector::PropertiesRadioButtonsGroupBoxConnector(const Name& propertyName, QGroupBox* groupBox, const Stack<QRadioButton*>& buttons)
     : PropertiesConnectorBase(propertyName,
-                              [groupBox, buttons](const QVariant& value){
+                              [buttons](const QVariant& value){
                                     auto index = value.toUInt();
                                     Q_ASSERT(index >= 0 && index < buttons.Size());
                                     auto* targetButton = buttons.At(index);
@@ -210,12 +209,12 @@ Stack<QRadioButton*> PropertiesRadioButtonsGroupBoxConnector::ButtonsFromGroup(Q
 
 PropertiesComboBoxConnector::PropertiesComboBoxConnector(const Name& propertyName, QComboBox* comboBox)
     : PropertiesConnectorBase(propertyName,
-                              [comboBox, this](const QVariant& value){
+                              [comboBox](const QVariant& value){
                                   comboBox->setCurrentIndex(value.toUInt());
                               },
                               comboBox)
 {
-    m_connection = connect(comboBox, static_cast<void (QComboBox::*)(qint32)>(&QComboBox::currentIndexChanged), [this](qint32 value){
+    m_connection = connect(comboBox, static_cast<void (QComboBox::*)(qint32)>(&QComboBox::activated), [this](qint32 value){
         PropertyChangeGuard guard(this);
         m_propertyPtr.GetProperty()->SetValue(value);
     });

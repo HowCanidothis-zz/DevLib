@@ -82,13 +82,13 @@ void ThreadEventsContainer::Pause(const FOnPause& onPause)
     m_onPause = onPause;
     m_isPaused = true;
 
-    if(m_events.empty()) {
+    /*if(m_events.empty()) {
         Asynch([]{});
     }
 
     while (!m_events.empty() && m_eventsMutex.tryLock()) {
         m_eventsMutex.unlock();
-    }
+    }*/
 }
 
 AsyncResult ThreadEventsContainer::Asynch(ThreadEvent::FEventHandler handler)
@@ -102,7 +102,6 @@ AsyncResult ThreadEventsContainer::Asynch(ThreadEvent::FEventHandler handler)
 void ThreadEventsContainer::clearEvents()
 {
     m_interupted = true;
-    ProcessEvents();
     QMutexLocker locker(&m_eventsMutex);
     while(!m_events.empty()) {
         delete m_events.front();

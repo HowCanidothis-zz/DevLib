@@ -1,0 +1,20 @@
+
+NotifyButton:hover {
+    background-color: transparent;
+}
+
+NotifyConsole QPushButton#BtnClear:hover{
+    background-color: #ECECEC;
+}
+
+NotifyConsole QPushButton#BtnCloseConsole:hover{
+    background-color: #ECECEC;
+}
+
+NotifyConsole QPushButton#BtnShowInfo:hover {
+    background: #ECECEC;
+}
+
+NotifyConsole QPushButton#BtnShowWarnings:hover {
+    background: #ECECEC;
+}

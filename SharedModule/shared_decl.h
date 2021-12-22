@@ -5,6 +5,36 @@
 #include <QLoggingCategory>
 
 #include <functional>
+#include <cmath>
+
+#include "flags.h"
+
+enum SerializationMode {
+    SerializationMode_Default = 0x0,
+    SerializationMode_InvokeProperties = 0x1,
+    SerializationMode_MinMaxProperties = 0x2,
+    SerializationMode_Sorted_Containers = 0x4,
+    SerializationMode_Comparison = 0x8,
+    SerializationMode_Merge_Containers = 0x10,
+    SerializationMode_UserDefined = 0x200
+};
+DECL_FLAGS(SerializationModes, SerializationMode);
+
+class Nanosecs
+{
+public:
+    Nanosecs(double nsecs)
+        : _nsecs(nsecs)
+    {}
+
+    double TimesPerSecond() const;
+    QString ToString(const QString& caption) const;
+
+    operator double() const { return _nsecs; }
+
+private:
+    double _nsecs;
+};
 
 #ifndef STATIC_LINK
 #if defined(LIBRARY)
@@ -21,17 +51,21 @@ typedef std::function<void ()> FAction;
 
 class QTextStream;
 
-class _Export DirBinder
-{
-    QString old_path;
-public:
-    explicit DirBinder(const QString& dir);
-    ~DirBinder();
+enum class EPriority {
+    High,
+    Low,
+    Count
 };
 
 template<typename T>
 T clamp(const T& value, const T& min, const T& max) {
     return (value < min) ? min : (max < value) ? max : value;
+}
+
+template<class T>
+T lerp(const T& a, const T& b, double t)
+{
+    return a + t * (b - a);
 }
 
 inline double sign(double value)
@@ -43,6 +77,71 @@ inline double sign(double value)
         return 1.0;
     }
     return 0.0;
+}
+
+inline bool fuzzyCompare(double v1, double v2, double epsilon = std::numeric_limits<double>().epsilon())
+{
+    return qAbs(v1 - v2) < epsilon;
+}
+
+inline bool fuzzyCompare(float v1, float v2, float epsilon = std::numeric_limits<float>().epsilon())
+{
+    return qAbs(v1 - v2) < epsilon;
+}
+
+inline bool fuzzyIsNull(float v1, float epsilon = std::numeric_limits<float>().epsilon())
+{
+    return qAbs(v1 - 0.f) < epsilon;
+}
+
+inline bool fuzzyIsNull(double v1, double epsilon = std::numeric_limits<double>().epsilon())
+{
+    return qAbs(v1 - 0.0) < epsilon;
+}
+
+namespace sm_internal
+{
+    template<std::uint64_t B, unsigned char E, typename T>
+    struct power_of
+    {
+        static constexpr T value = T(B) * power_of<B, E - 1, T>::value;
+    };
+
+    template<std::uint64_t B, typename T>
+    struct power_of<B, 0, T>
+    {
+        static constexpr T value = T(1);
+    };
+
+    template<std::uint64_t B, unsigned char E, typename T>
+    inline constexpr auto power_of_v = power_of<B, E, T>::value;
+}
+
+inline double round(double value, int decimals)
+{
+    return std::round(value * decimals) / decimals;
+}
+
+inline float round(float value, int decimals)
+{
+    return std::round(value * decimals) / decimals;
+}
+
+template<qint32 Decimals>
+inline double round(double value)
+{
+    return round(value, sm_internal::power_of<10,Decimals,double>::value);
+}
+
+template<qint32 Decimals>
+inline float round(float value)
+{
+    return round(value, sm_internal::power_of<10,Decimals,float>::value);
+}
+
+inline QString dToStr(double value, qint32 precision = 2)
+{
+    return QString::number(value, 'd', precision);
 }
 
 namespace adapters {
@@ -78,11 +177,18 @@ Range<It> range(It begin, It end) {
 
 }
 
+template<typename Enum>
+struct EnumHelper
+{
+    static QStringList GetNames();
+};
+
 enum Sides {
     Left,
     Right,
     Bottom,
-    Top
+    Top,
+    Sides_Count
 };
 
 namespace guards {

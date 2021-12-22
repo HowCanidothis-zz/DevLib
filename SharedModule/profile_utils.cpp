@@ -85,8 +85,22 @@ PerformanceClocks::PerformanceClocks(const char* function, const char* file, qui
     : _function(function)
     , _file(file)
     , _line(line)
+    , m_totalTime(0)
 {
     getPerfomanceClocksInstances().Append(this);
+}
+
+qint64 PerformanceClocks::Release()
+{
+    m_totalTime += _timer->ElapsedTime();
+    return Super::Release();
+}
+
+QString PerformanceClocks::ToString() const
+{
+    auto result = Super::ToString();
+    result += Nanosecs(m_totalTime).ToString(" Total Time");
+    return result;
 }
 
 void PerformanceClocks::PrintReport()
@@ -105,16 +119,4 @@ Stack<PerformanceClocks*>&PerformanceClocks::getPerfomanceClocksInstances()
 {
     static Stack<PerformanceClocks*> clocks;
     return clocks;
-}
-
-
-
-double Nanosecs::TimesPerSecond() const
-{
-    return 1000000000.0 / _nsecs;
-}
-
-QString Nanosecs::ToString(const QString& caption) const
-{
-    return Timer::TimeToStringSecs(caption, _nsecs);
 }

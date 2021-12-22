@@ -2,10 +2,13 @@
 
 #include <QOpenGLShaderProgram>
 #include "../gtshadowmaptechnique.h"
-#include "../internal.hpp"
 #include "ResourcesModule/resourcessystem.h"
+#include "GraphicsToolsModule/gtrenderer.h"
+#include "GraphicsToolsModule/gttexture2D.h"
+#include "GraphicsToolsModule/gtframebufferobject.h"
+#include "GraphicsToolsModule/gtcamera.h"
 
-GtMaterialParameterShadow::GtMaterialParameterShadow(const QString& name, const QString& resource)
+GtMaterialParameterShadow::GtMaterialParameterShadow(const QString& name, const Name& resource)
     : Super(name, resource)
 {
 
@@ -13,7 +16,7 @@ GtMaterialParameterShadow::GtMaterialParameterShadow(const QString& name, const 
 
 GtMaterialParameterBase::FDelegate GtMaterialParameterShadow::apply()
 {
-    m_technique = ResourcesSystem::GetResource<GtShadowMapTechnique>(m_resource);
+    m_technique = currentRenderer()->GetResource<GtShadowMapTechnique>(m_resource);
     const auto& tech = m_technique->Data().Get();
     gTexID depth = tech.GetDepthTexture();
     return [this, depth](QOpenGLShaderProgram* program, quint32 loc, OpenGLFunctions* f) {

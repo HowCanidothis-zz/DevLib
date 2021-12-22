@@ -1,11 +1,11 @@
 #ifndef PROCCESSFACTORY_H
 #define PROCCESSFACTORY_H
 
+#include "SharedModule/shared_decl.h"
+
 #include <string>
 #include <atomic>
 #include <functional>
-
-#include <SharedModule/internal.hpp>
 
 struct DescProcessValueState
 {
@@ -26,44 +26,6 @@ struct DescProcessValueState
     {}
 };
 
-class _Export ProcessValue
-{
-protected:
-    typedef std::function<void (ProcessValue*)> FCallback;
-    ProcessValue(const FCallback& callback);
-
-public:
-    virtual ~ProcessValue();
-
-    void Cancel();
-
-    DescProcessValueState GetState() const { return { GetTitle(), GetDepth(), IsFinished(), IsCancelable(), IsTitleChanged() }; }
-    int GetDepth() const { return m_valueDepth; }
-    const std::wstring& GetTitle() const { return m_title; }
-    bool IsFinished() const { return m_isFinished; }
-    bool IsCancelable() const { return m_isCancelable; }
-    bool IsTitleChanged() const { return m_isTitleChanged; }
-    virtual class ProcessDeterminateValue* AsDeterminate() { return nullptr; }
-
-protected:
-    void setTitle(const std::wstring& title);
-    void finish();
-
-    virtual void incrementStep(int divider);
-    void init(bool cancelable, const std::wstring& title);
-
-protected:
-    friend class ProcessFactory;
-    friend class ProcessBase;
-
-    int m_valueDepth;
-    FCallback m_callback;
-    std::wstring m_title;
-    bool m_isFinished;
-    std::atomic_bool m_isCancelable;
-    bool m_isTitleChanged;
-};
-
 struct DescProcessDeterminateValueState : DescProcessValueState
 {
     int CurrentStep;
@@ -74,6 +36,53 @@ struct DescProcessDeterminateValueState : DescProcessValueState
         , CurrentStep(currentStep)
         , StepsCount(stepsCount)
     {}
+
+    DescProcessDeterminateValueState()
+        : DescProcessValueState(std::wstring(), -1, false, false, false)
+        , CurrentStep(0)
+        , StepsCount(0)
+    {}
+};
+
+class _Export ProcessValue
+{
+protected:
+    typedef std::function<void (ProcessValue*)> FCallback;
+    ProcessValue(const FCallback& callback);
+
+public:
+    virtual ~ProcessValue();
+
+    void SetDummy(bool dummy);
+    void Cancel();
+
+    DescProcessValueState GetState() const { return { GetTitle(), GetDepth(), IsFinished(), IsCancelable(), IsTitleChanged() }; }
+    virtual DescProcessDeterminateValueState GetCommonState() const { return DescProcessDeterminateValueState(GetTitle(), GetDepth(), IsFinished(), IsCancelable(), 0, 0, IsTitleChanged()); }
+    int GetDepth() const { return m_valueDepth; }
+    const std::wstring& GetTitle() const { return m_title; }
+    bool IsFinished() const { return m_isFinished; }
+    bool IsCancelable() const { return m_interruptor != nullptr; }
+    bool IsTitleChanged() const { return m_isTitleChanged; }
+    virtual class ProcessDeterminateValue* AsDeterminate() { return nullptr; }
+
+protected:
+    void setTitle(const std::wstring& title);
+    void finish();
+
+    virtual void incrementStep(int divider);
+    void init(class Interruptor* interruptor, const std::wstring& title);
+
+protected:
+    friend class ProcessFactory;
+    friend class ProcessBase;
+
+    int m_valueDepth;
+    FCallback m_currentCallback;
+    FCallback m_callback;
+    std::wstring m_title;
+    bool m_isFinished;
+    Interruptor* m_interruptor;
+    bool m_isTitleChanged;
 };
 
 class ProcessDeterminateValue : public ProcessValue
@@ -85,6 +94,7 @@ public:
     ~ProcessDeterminateValue();
 
     DescProcessDeterminateValueState GetState() const { return { GetTitle(), GetDepth(), IsFinished(), IsCancelable(), GetCurrentStep(), GetStepsCount(), IsTitleChanged() }; }
+    DescProcessDeterminateValueState GetCommonState() const override { return DescProcessDeterminateValueState(GetTitle(), GetDepth(), IsFinished(), IsCancelable(), GetCurrentStep(), GetStepsCount(), IsTitleChanged()); }
     int GetCurrentStep() const { return m_currentStep; }
     int GetStepsCount() const { return m_stepsCount; }
     virtual ProcessDeterminateValue* AsDeterminate() override{ return this; }
@@ -95,7 +105,7 @@ private:
 
     virtual void incrementStep(int divider) override;
 
-    void init(bool cancelable, const std::wstring& title, int stepsCount);
+    void init(Interruptor* interruptor, const std::wstring& title, int stepsCount);
     void increaseStepsCount(int value);
 
 private:

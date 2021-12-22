@@ -5,47 +5,58 @@
 
 #include "gtmaterialparameterbase.h"
 #include "../gtmeshbase.h"
+#include "../gtrenderer.h"
+#include "gtshaderprogram.h"
 
-GtMaterial::GtMaterial(gRenderType renderType)
+GtMaterial::GtMaterial(gRenderType renderType, const GtShaderProgramPtr& program)
     : m_renderType(renderType)
     , m_visible(true)
+    , m_isDirty(true)
+    , m_shaderProgram(program)
 {
-
+    Q_ASSERT(m_shaderProgram != nullptr);
+    program->OnUpdated += { this, [this]{
+        m_isDirty = true;
+    }};
 }
 
 GtMaterial::~GtMaterial()
 {
-
+    m_shaderProgram->OnUpdated -= this;
 }
 
-void GtMaterial::AddParameter(GtMaterialParameterBase* delegate)
+void GtMaterial::AddParameter(const SharedPointer<GtMaterialParameterBase>& parameter, bool required)
 {
-    m_parameters.Push(delegate);
+    parameter->SetRequired(required);
+    m_parameters.append(parameter);
 }
 
-void GtMaterial::AddMesh(GtMeshBase* mesh)
+void GtMaterial::AddMesh(const GtMeshPtr& mesh)
 {
-    m_meshs.Append(mesh);
+    m_meshs.append(mesh);
 }
 
 void GtMaterial::Draw(OpenGLFunctions* f)
 {
-    if(!m_visible) {
+    if(!m_visible || !m_shaderProgram->IsValid()) {
         return;
     }
 
-    Q_ASSERT(m_shaderProgram != nullptr);
-    m_shaderProgram->bind();
+    if(!m_shaderProgram->Bind()) {
+        return;
+    }
+    if(m_isDirty) {
+        Update();
+    }
 
-    for(GtMaterialParameterBase* parameter : m_parameters)
-        parameter->bind(m_shaderProgram.data(), f);
+    updateParameters(f);
 
-    for(GtMeshBase* mesh : m_meshs) {
+    for(const auto& mesh : m_meshs) {
         if(mesh->IsVisible())
             mesh->Draw(m_renderType, f);
     }
 
-    m_shaderProgram->release();
+    m_shaderProgram->Release();
 }
 
 void GtMaterial::SetVisible(bool visible)
@@ -53,88 +64,26 @@ void GtMaterial::SetVisible(bool visible)
     m_visible = visible;
 }
 
-GtMaterial&GtMaterial::AddShader(GtMaterial::ShaderType type, const QString& file)
+void GtMaterial::SetRenderType(gRenderType renderType)
 {
-    m_shaders.Append(new Shader({file, type}));
-    return *this;
-}
-
-void GtMaterial::SetShaders(const QString& path, const QString& vert_file, const QString& frag_file)
-{
-    SetDir(path);
-    AddShader(Vertex, vert_file);
-    AddShader(Fragment, frag_file);
-    // Update();
-}
-
-void GtMaterial::SetShaders(const QString& path, const QString& vertFile, const QString& geomFile, const QString& fragFile)
-{
-    SetDir(path);
-    AddShader(Vertex, vertFile);
-    AddShader(Geometry, geomFile);
-    AddShader(Fragment, fragFile);
-    // Update();
+    m_renderType = renderType;
 }
 
 void GtMaterial::Update()
 {
-    m_shaderProgram.reset(new QOpenGLShaderProgram);
-    m_shaderProgram->create();
-    {
-        if(m_shadersPath == ":/") {
-            for(Shader* shader : m_shaders) {
-                QOpenGLShader* shader_object = new QOpenGLShader((QOpenGLShader::ShaderTypeBit)shader->Type, m_shaderProgram.data());
-                if(shader_object->compileSourceFile(m_shadersPath + shader->File)) {
-                    m_shaderProgram->addShader(shader_object);
-                }
-            }
-        } else {
-            DirBinder dir(m_shadersPath);
-            for(Shader* shader : m_shaders) {
-                QOpenGLShader* shader_object = new QOpenGLShader((QOpenGLShader::ShaderTypeBit)shader->Type, m_shaderProgram.data());
-                if(shader_object->compileSourceFile(shader->File)) {
-                    m_shaderProgram->addShader(shader_object);
-                }
-            }
-        }
-    }
-    if(!m_shaderProgram->link()) {
-        qCCritical(LC_SYSTEM) << "unable to link program" << m_shaderProgram->log();
-    }
-
     gTexUnit unit = 0;
 
-    for(GtMaterialParameterBase* parameter : m_parameters) {
-        parameter->updateLocation(m_shaderProgram.data());
+    for(const auto& parameter : m_parameters) {
+        parameter->updateLocation(m_shaderProgram->GetQOpenGLShaderProgram());
         parameter->updateTextureUnit(unit);
         parameter->installDelegate();
     }
+    m_isDirty = false;
 }
 
-void GtMaterial::UpdateParameters()
+void GtMaterial::updateParameters(OpenGLFunctions* f)
 {
-    gTexUnit unit = 0;
-
-    for(GtMaterialParameterBase* parameter : m_parameters) {
-        parameter->updateLocation(m_shaderProgram.data());
-        parameter->updateTextureUnit(unit);
-        parameter->installDelegate();
-    }
-}
-
-void GtMaterial::MapProperties(Observer* observer)
-{
-    qint32 counter = 0;
-    for(Shader* shader : m_shaders) {
-        new ExternalTextFileNameProperty(Name("Shaders/" + QString::number(counter++)), shader->File);
-        observer->AddFilePtrObserver(&m_shadersPath, &shader->File, [this]{
-            this->Update();
-        });
-    }
-
-    GtMaterialParameterBase::material() = this;
-
-    for(GtMaterialParameterBase* parameter : m_parameters) {
-        parameter->MapProperties(observer);
+    for(const auto& parameter : m_parameters) {
+        parameter->bind(m_shaderProgram->GetQOpenGLShaderProgram(), f);
     }
 }

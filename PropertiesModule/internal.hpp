@@ -17,11 +17,16 @@
 #include "propertiesscope.h"
 #include "propertieswindow.h"
 #include "propertyanimation.h"
+#include "localpropertywatcher.h"
+#include "stateproperty.h"
 #include "propertiesfilenamesgenerator.h"
 #include "localproperty.h"
 #include "propertiesserializer.h"
 #include "Widgets/propertieswidgetsconnector.h"
 #include "Widgets/localpropertieswidgetconnector.h"
+#include "translatormanager.h"
+#include "localpropertydeclarations.h"
+#include "localpropertyerrorscontainer.h"
 #endif
 
 #endif // INTERNAL_HPP

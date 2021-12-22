@@ -3,8 +3,8 @@
 
 #include <memory>
 
-template<typename T>
-class ScopedPointer : public std::unique_ptr<T>
+template<typename T, typename deleter = std::default_delete<T>>
+class ScopedPointer : public std::unique_ptr<T, deleter>
 {
     typedef std::unique_ptr<T> Super;
 public:
@@ -46,6 +46,9 @@ public:
     template<typename T2>
     SharedPointer<T2>& Cast() { return *reinterpret_cast<SharedPointer<T2>*>(this); }
 };
+
+template<class T, typename DefaultDeleter, typename ... Args>
+SharedPointer<T> make_shared(Args ... args) { return SharedPointer<T>(new T(args...), DefaultDeleter()); }
 
 template<class T, typename ... Args>
 SharedPointer<T> make_shared(Args ... args) { return SharedPointer<T>(new T(args...)); }

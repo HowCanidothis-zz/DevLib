@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "iprocess.h"
+#include "SharedModule/interruptor.h"
 
 class ProcessValue;
 
@@ -27,7 +28,9 @@ public:
     ProcessBase();
     ~ProcessBase();
 
-    void SetCancelable(bool cancelable);
+    void SetInterruptor(const Interruptor& interruptor);
+    void SetSilentIfOneStep(bool silentIfOneStep) { m_silentIfOneStep = silentIfOneStep; }
+    const std::wstring& GetTitle() const;
 
     void BeginProcess(const wchar_t* title, bool shadow = false) override;
     void BeginProcess(const wchar_t* title, int stepsCount, int wantedCount, bool shadow = false) override;
@@ -39,7 +42,8 @@ public:
 private:
     std::unique_ptr<ProcessValue> m_processValue;
     int m_divider;
-    bool m_cancelable;
+    ScopedPointer<Interruptor> m_interruptor;
+    bool m_silentIfOneStep;
 };
 
 

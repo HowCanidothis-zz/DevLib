@@ -7,67 +7,114 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <SharedModule/smartpointersadapters.h>
-#include <SharedModule/shared_decl.h>
+#include "SharedModule/MemoryManager/memorymanager.h"
+#include "SharedModule/smartpointersadapters.h"
+#include "SharedModule/shared_decl.h"
+#include "SharedModule/dispatcher.h"
 
-template<class T>
-class PromiseData
+class PromiseData ATTACH_MEMORY_SPY(PromiseData)
 {
-    typedef std::function<void (const T&)> FCallback;
-    typedef std::function<void ()> FOnError;
-
-    template<class> friend class Promise;
-    friend class FutureResult;
-    friend class AsyncObject;
-    FCallback PromiseCallback;
-    std::atomic_bool IsCompleted;
-    std::mutex m_mutex;
-    T ResolvedValue;
-
+public:
+    using FCallback = std::function<void (bool)>;
     PromiseData()
-        : IsCompleted(false)
+        : m_result(false)
+        , m_isResolved(false)
+        , m_isCompleted(false)
     {}
+    ~PromiseData()
+    {
+        if(!m_isCompleted) {
+            resolve(false);
+        }
+    }
+
+private:
+    friend class Promise;
+    bool m_result;
+    std::atomic_bool m_isResolved;
+    std::atomic_bool m_isCompleted;
+    CommonDispatcher<bool> onFinished;
+    std::mutex m_mutex;
+
+    void resolve(bool value)
+    {
+        resolve([value]{ return value; });
+    }
+    
+    void resolve(const std::function<bool ()>& handler)
+    {
+        if(m_isResolved) {
+            return;
+        }
+        
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            if(m_isResolved) {
+                return;
+            }
+            m_isResolved = true;
+        }
+        bool value = handler();
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_result = value;
+            onFinished(value);
+            m_isCompleted = true;
+        }            
+        
+        onFinished -= this;
+    }
+
+    DispatcherConnection then(const FCallback& handler)
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if(m_isCompleted) {
+            handler(m_result);
+            return DispatcherConnection();
+        } else {
+            return onFinished.Connect(this, handler);
+        }
+    }
+
+    void mute()
+    {
+         onFinished -= this;
+    }
 };
 
-template<class T>
 class Promise
 {
-    friend class FutureResult;
-    SharedPointer<PromiseData<T>> m_data;
+    SharedPointer<PromiseData> m_data;
 public:
+
     Promise()
-        : m_data(new PromiseData<T>())
+        : m_data(::make_shared<PromiseData>())
     {}
 
-    void Resolve(const T& value)
-    {
-        std::unique_lock<std::mutex> lock(m_data->m_mutex);
-        m_data->ResolvedValue = value;
-        m_data->IsCompleted = true;
-        if(m_data->PromiseCallback) {
-            m_data->PromiseCallback(value);
-        }
-    }
+    PromiseData* GetData() const { return m_data.get(); }
+    bool GetValue() const { return m_data->m_result; }
+    bool IsResolved() const { return m_data->m_isCompleted; }
+    DispatcherConnection Then(const typename PromiseData::FCallback& handler) const { return m_data->then(handler); }
+    void Resolve(bool value) const {  m_data->resolve(value); }
+    void Resolve(const std::function<bool ()>& handler) const {  m_data->resolve(handler); }
+    void Mute() { m_data->mute(); }
 
-    void Then(const typename PromiseData<T>::FCallback& then)
+    template<typename ... Args>
+    static Promise OnFirstInvokeWithResult(CommonDispatcher<Args...>& dispatcher, const typename CommonDispatcher<Args...>::FCommonDispatcherActionWithResult& acceptHandler = [](Args...) { return true; })
     {
-        std::unique_lock<std::mutex> lock(m_data->m_mutex);
-        Q_ASSERT(m_data->PromiseCallback == nullptr); // Only one "Then task" is supported
-        if(m_data->IsCompleted) {
-            then(m_data->ResolvedValue);
-        } else {
-            m_data->PromiseCallback = then;
-        }
-    }
-
-    void Mute()
-    {
-        std::unique_lock<std::mutex> lock(m_data->m_mutex);
-        m_data->PromiseCallback = nullptr;
+        Promise result;
+        auto connections = ::make_shared<DispatcherConnectionsSafe>();
+        dispatcher.Connect(nullptr, [result, connections, acceptHandler](Args... args){
+            if(acceptHandler(args...)) {
+                connections->clear();
+                result.Resolve(true);
+            }
+        }).MakeSafe(*connections);
+        return result;
     }
 };
 
-typedef Promise<bool> AsyncResult;
+using AsyncResult = Promise;
 
 class AsyncError : public AsyncResult
 {
@@ -77,83 +124,136 @@ public:
     }
 };
 
-class AsyncObject
+class AsyncSuccess : public AsyncResult
 {
 public:
-    AsyncObject();
-    ~AsyncObject();
-
-    AsyncResult Async(const FAction& action, const PromiseData<bool>::FCallback& onDone);
-
-private:
-    AsyncResult m_result;
+    AsyncSuccess() {
+        Resolve(true);
+    }
 };
 
-class FutureResult
+class FutureResultData ATTACH_MEMORY_SPY(FutureResultData)
 {
+    template<class T> friend class QtFutureWatcher;
+    friend class FutureResult;
     std::atomic<bool> m_result;
     std::atomic<int> m_promisesCounter;
     std::condition_variable m_conditional;
     std::mutex m_mutex;
-#ifndef QT_NO_DEBUG
-    std::set<PromiseData<bool>*> m_registeredPromises;
-#endif
-public:
-    FutureResult()
-        : m_result(false)
-        , m_promisesCounter(0)
-    {}
 
-    FutureResult& operator+=(AsyncResult promise)
+    void ref()
     {
-        if(promise.m_data->IsCompleted)
-        {
-            if(!promise.m_data->ResolvedValue) {
-                m_result = false;
-            }
-        }
+        m_promisesCounter++;
+    }
+    void deref()
+    {
+        m_promisesCounter--;
 
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_promisesCounter++;
-#ifndef QT_NO_DEBUG
-            auto data = promise.m_data.get();
-            Q_ASSERT(m_registeredPromises.find(data) == m_registeredPromises.end());
-            m_registeredPromises.insert(data);
-#endif
+        if(isFinished()) {
+            onFinished();
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_conditional.notify_one();
+            }
+            onFinished -= this;
         }
-        promise.Then([this, promise](bool result){
+    }
+
+    bool isFinished() const { return m_promisesCounter == 0; }
+    bool getResult() const { return m_result; }
+
+    void addPromise(const AsyncResult& promise, const SharedPointer<FutureResultData>& self)
+    {
+        ref();
+        promise.Then([this, self](const bool& result){
             if(!result) {
                 m_result = false;
             }
-            *this -= promise;
+            deref();
         });
 
-        return *this;
+        return;
     }
 
-    FutureResult& operator-=(const AsyncResult& promise)
+    void then(const std::function<void (bool)>& action)
+    {
+        if(isFinished()) {
+            action(getResult());
+        } else {
+            onFinished.Connect(this, [this, action]{
+                action(m_result);
+            });
+        }
+    }
+
+    void wait()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        m_promisesCounter--;
-#ifndef QT_NO_DEBUG
-        auto data = promise.m_data.get();
-        Q_ASSERT(m_registeredPromises.find(data) != m_registeredPromises.end());
-        m_registeredPromises.erase(data);
-#else
-        Q_UNUSED(promise);
-#endif
-        m_conditional.notify_one();
+        while(!isFinished()) {
+            m_conditional.wait(lock);
+        }
+    }
 
-        return *this;
+    Dispatcher onFinished;
+
+public:
+    FutureResultData()
+        : m_result(true)
+        , m_promisesCounter(0)
+    {}
+
+    ~FutureResultData()
+    {
+
+    }
+};
+
+class FutureResult ATTACH_MEMORY_SPY(FutureResult)
+{
+    template<class T> friend class QtFutureWatcher;
+    SharedPointer<FutureResultData> m_data;
+public:
+    FutureResult()
+        : m_data(::make_shared<FutureResultData>())
+    {}
+
+    bool IsFinished() const { return m_data->isFinished(); }
+    bool GetResult() const { return m_data->getResult(); }
+
+    void operator+=(const Promise& promise)
+    {
+        m_data->addPromise(promise, m_data);
+    }
+
+    void Then(const std::function<void (bool)>& action)
+    {
+        m_data->then(action);
     }
 
     void Wait()
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        while(m_promisesCounter != 0) {
-            m_conditional.wait(lock);
-        }
+        m_data->wait();
+    }
+};
+
+#include <QFuture>
+#include <QFutureWatcher>
+template<class T>
+class QtFutureWatcher : public QFutureWatcher<T>
+{
+    using Super = QFutureWatcher<T>;
+    QFuture<T> m_future;
+    AsyncResult m_result;
+public:
+    QtFutureWatcher(const QFuture<T>& future, const AsyncResult& result)
+        : m_future(future)
+        , m_result(result)
+    {
+        Super::connect(this, &QtFutureWatcher<T>::finished, [this](){
+            m_result.Resolve(true);
+            this->deleteLater();
+        });
+        Super::setFuture(future);
     }
 };
 

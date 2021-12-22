@@ -3,15 +3,11 @@
 
 #include <QFrame>
 
+#include <PropertiesModule/internal.hpp>
+
 namespace Ui {
 class TopNotifierFrame;
 }
-
-struct WidgetAppearance
-{
-    static void ShowAnimated(QWidget* widget);
-    static void HideAnimated(QWidget* widget);
-};
 
 class TopNotifierFrame : public QFrame
 {
@@ -32,6 +28,15 @@ public:
 
 private:
     Ui::TopNotifierFrame *ui;
+};
+
+class TopNotifierFrameErrorsComponent
+{
+public:
+    TopNotifierFrameErrorsComponent(LocalPropertyErrorsContainer* errors, TopNotifierFrame* frame);
+
+private:
+    DispatcherConnectionsSafe m_connections;
 };
 
 #endif // TOPNOTIFIERWIDGET_H

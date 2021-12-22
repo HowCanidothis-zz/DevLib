@@ -57,6 +57,7 @@ SharedPointer<ExternalPropertyProperty> Property::Clone(const Name& newName) con
 QVariant Property::GetValueFromRole(int role) const
 {
     switch (role) {
+    case RoleQmlValue:
     case Qt::DisplayRole: {
         return getDisplayValue();
     }
@@ -124,7 +125,12 @@ Vector3FProperty::Vector3FProperty(const QString& path, const Vector3F& vector, 
     , Y(Name(path+"/y"), vector.y(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), options)
     , Z(Name(path+"/z"), vector.z(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), options)
 {
-
+    auto emitDispatcher = [this]() {
+        OnChanged();
+    };
+    X.Subscribe(emitDispatcher);
+    Y.Subscribe(emitDispatcher);
+    Z.Subscribe(emitDispatcher);
 }
 
 #endif
